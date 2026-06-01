@@ -1,0 +1,15 @@
+{
+  "name": "quint-llm-kit",
+  "metadata": {
+    "description": "Agent skills for Quint — formal specification for distributed systems. Write specs, translate TLA+, generate specs from code, review and verify."
+  },
+  "owner": {
+    "name": "quint-co"
+  },
+  "plugins": [
+    {
+      "name": "quint-llm-kit",
+      "source": "."
+    }
+  ]
+}

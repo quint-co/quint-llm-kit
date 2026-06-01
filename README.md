@@ -84,6 +84,59 @@ When in doubt of what to try next, run
 
 which will suggest potential next things you can try. This works from the very start (even if your project doesn't have a Quint spec yet).
 
+## Agent Skills (no Docker required)
+
+> **Two paths, same goal.**
+> The `agentic/` commands (above) are the **Docker-native path**: they run inside the container, use MCP servers for the Quint REPL, and are optimised for Claude Code.
+> The `skills/` below are the **lightweight path**: plain `quint` CLI, no Docker, any agent.
+> Both cover Quint spec work — pick whichever fits your setup. If you are already in the Docker environment, prefer the slash commands; if you are not, install the skills.
+
+The `skills/` directory contains standalone agent skills for working with Quint. They work independently of Docker — install them directly into your AI agent of choice.
+
+| Skill | What it does |
+|---|---|
+| [`quint-lang`](skills/quint-lang/SKILL.md) | Full Quint language reference, CLI toolchain, distributed protocol patterns |
+| [`quint-from-code`](skills/quint-from-code/SKILL.md) | Generate a Quint spec from source code (Rust, Go, TypeScript, …) or TLA+ |
+| [`quint-execute-spec`](skills/quint-execute-spec/SKILL.md) | Implement code grounded by an existing Quint spec |
+| [`tlaplus-to-quint`](skills/tlaplus-to-quint/SKILL.md) | Translate a TLA+ spec to Quint |
+| [`quint-spec-review`](skills/quint-spec-review/SKILL.md) | Audit a spec for quality, patterns, and correctness |
+| [`design-verification-framing`](skills/design-verification-framing/SKILL.md) | Frame properties and explain simulation outcomes |
+| [`design-model-building-blocks`](skills/design-model-building-blocks/SKILL.md) | Derive model structure from plain-English requirements |
+| [`spec-plain-english-explanation`](skills/spec-plain-english-explanation/SKILL.md) | Walk through a spec for engineers unfamiliar with formal methods |
+
+### Install skills
+
+**Claude Code**
+```
+/plugin marketplace add quint-co/quint-llm-kit
+/plugin install quint-llm-kit
+```
+
+**Cursor** — open Settings → Plugins, paste `https://github.com/quint-co/quint-llm-kit`, add. Or clone this repo and open it in Cursor (auto-discovers `.cursor-plugin/plugin.json`).
+
+**VS Code + Copilot** — clone this repo and open it in VS Code (auto-discovers `.copilot-plugin/plugin.json`).
+
+**Codex / Gemini CLI / OpenCode / Cline / and more (macOS / Linux)**
+```bash
+curl -fsSL https://raw.githubusercontent.com/quint-co/quint-llm-kit/main/install.sh | bash
+# or pass the platform to skip the prompt:
+curl -fsSL https://raw.githubusercontent.com/quint-co/quint-llm-kit/main/install.sh | bash -s codex
+```
+
+**Windows (PowerShell)**
+```powershell
+iwr -useb https://raw.githubusercontent.com/quint-co/quint-llm-kit/main/install.ps1 | iex
+```
+
+**npx**
+```bash
+npx skills add quint-co/quint-llm-kit
+```
+
+Supported CLI platforms: `gemini`, `codex`, `opencode`, `pi`, `openclaw`, `antigravity`, `vibe`, `vscode`, `hermes`, `cline`, `kimi`, `trae`
+
+---
+
 ## Security Notes
 
 - The container runs as a non-root user (`dev`) for security

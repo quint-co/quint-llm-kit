@@ -1,0 +1,376 @@
+# Quint Specification Patterns
+
+Core patterns for writing correct, testable Quint specifications.
+
+---
+
+## 1. State Type Pattern
+
+Encapsulate all state in a single `State` record. This is the fundamental structure for most Quint specs.
+
+```quint
+module System {
+  // 1. Types — State record encapsulates everything
+  type State = {
+    field1: Type1,
+    field2: str -> int,   // map type syntax: KeyType -> ValueType
+  }
+
+  // 2. Constants
+  pure val INITIAL_USERS: Set[str] = Set("alice", "bob")
+
+  // 3. Pure functions — ALL business logic here
+  pure def operation(state: State, param: Type1): {success: bool, newState: State} =
+    if (precondition(state, param)) {
+      {success: true, newState: {...state, field1: newValue}}
+    } else {
+      {success: false, newState: state}
+    }
+
+  // 4. State variable — keep cohesive state grouped
+  var state: State
+
+  // 5. Invariants
+  val noNegativeBalances: bool = INITIAL_USERS.forall(u => state.field2.get(u) >= 0)
+
+  // 6. Actions — thin wrappers only
+  action unchanged_all: bool = all {
+    state' = state,
+  }
+
+  action doOperation(param: Type1): bool = {
+    val result = operation(state, param)
+    if (result.success) {
+      state' = result.newState
+    } else {
+      unchanged_all
+    }
+  }
+
+  // 7. Initialization — pre-populate ALL maps
+  action init: bool = all {
+    state' = {
+      field1: initialValue,
+      field2: INITIAL_USERS.mapBy(u => 0),
+    },
+  }
+
+  // 8. Step action — nondeterministic exploration
+  action step: bool = {
+    nondet user = INITIAL_USERS.oneOf()
+    any {
+      doOperation(user),
+    }
+  }
+}
+```
+
+**Section order matters** — the type checker requires definitions before use: Types → Constants → Pure Functions → State Variables → Invariants → Actions → Init → Step.
+
+---
+
+## 2. Pure Functions Pattern
+
+All business logic goes in pure functions. Actions are thin wrappers that call them.
+
+```quint
+// Pure function: takes State, returns {success, newState}
+pure def transfer(state: State, from: str, to: str, amount: int): {success: bool, newState: State} = {
+  val canTransfer = and {
+    state.balances.get(from) >= amount,
+    amount > 0,
+  }
+  if (canTransfer) {
+    val newBalances = state.balances
+      .setBy(from, b => b - amount)
+      .setBy(to,   b => b + amount)
+    {success: true, newState: {...state, balances: newBalances}}
+  } else {
+    {success: false, newState: state}
+  }
+}
+```
+
+**Why**: Pure functions can be tested directly in the REPL with any state. Logic in actions can only be tested by running the full state machine.
+
+---
+
+## 3. Thin Actions Pattern
+
+Actions do exactly three things: call the pure function, check success, update the grouped state variable.
+
+```quint
+action transfer(from: str, to: str, amount: int): bool = {
+  val result = transfer(state, from, to, amount)
+  if (result.success) {
+    state' = result.newState
+  } else {
+    unchanged_all
+  }
+}
+```
+
+No conditional logic in actions beyond the `result.success` check.
+
+For cohesive local state, avoid decomposing one concept into many top-level vars (`var id`, `var phase`, `var round`, ...). Prefer a `type LocalState` record and one `var localState: LocalState`.
+
+---
+
+## 4. Map Pre-population Pattern
+
+Always pre-populate maps in `init` using `mapBy`. Never start with an empty map if you'll call `.get()` on it.
+
+```quint
+// ❌ Wrong — get("alice") is undefined if alice not in map
+action init = all { balances' = Map() }
+
+// ✅ Correct — all keys pre-populated
+action init = all {
+  balances' = USERS.mapBy(u => 0)
+}
+```
+
+Map type syntax is `KeyType -> ValueType`, not `Map[KeyType, ValueType]`:
+
+```quint
+var balances: str -> int      // ✅ correct
+var balances: Map[str, int]   // ❌ wrong
+```
+
+---
+
+## 5. Syntax Rules
+
+Six common gotchas:
+
+```quint
+// 1. Parameterless pure def — omit parentheses
+pure def name = ...           // ✅
+pure def name() = ...         // ❌
+
+// 2. Map type syntax
+var m: str -> int             // ✅
+var m: Map[str, int]          // ❌
+
+// 3. Record update — spread syntax, not .with()
+{...state, field: newValue}   // ✅
+state.with("field", newValue) // ❌
+
+// 4. Variant constructors take one argument — use tuples for multiple values
+TimeoutInput((height, round)) // ✅
+TimeoutInput(height, round)   // ❌
+
+// 5. Tuple destructuring in match — bind first, then access
+| TimeoutInput(hr) => ... hr._1 ... hr._2   // ✅
+| TimeoutInput((height, round)) => ...       // ❌
+
+// 6. oneOf is a method on collections
+collection.oneOf()            // ✅
+oneOf(collection)             // ❌
+```
+
+---
+
+## 6. Undefined Behavior — What to Guard Against
+
+These operations have undefined behavior if preconditions aren't met:
+
+| Operation | Unsafe when | Safe alternative |
+| --- | --- | --- |
+| `map.get(key)` | key not in map | Pre-populate with `mapBy`, or check `map.keys().contains(key)` |
+| `set.getOnlyElement()` | set size ≠ 1 | `chooseSome()` (deterministic) or `oneOf()` (nondeterministic) |
+| `list.head()` / `list.tail()` | list is empty | Check `list.length() > 0` first |
+| `list.nth(i)` | i < 0 or i ≥ length | Check `i >= 0 and i < list.length()` |
+| `range(i, j)` / `i.to(j)` | i > j | Ensure `i <= j` |
+| `map.set(k, v)` | key not already in map | Use `put(k, v)` instead |
+
+---
+
+## 7. Action Witnesses Pattern
+
+A witness is an invariant that **should be violated** — violation means the target state is reachable.
+
+```quint
+// Witness: can doOperation succeed?
+// VIOLATED = ✅ (action is reachable)
+// SATISFIED = ❌ (action is unreachable — spec is over-constrained)
+val canDoOperationSuccessfully: bool =
+  not(lastActionSuccess and field != initialValue)
+
+// Run with:
+// quint run --invariant=canDoOperationSuccessfully spec.qnt
+```
+
+**Pattern variants:**
+
+```quint
+// Pattern 1: success flag + state evidence
+val canDelegateSuccessfully = not(lastActionSuccess and delegations.size() > 0)
+
+// Pattern 2: state change evidence only
+val canWithdrawSuccessfully = not(users.exists(u => balances.get(u) > INITIAL_BALANCE))
+
+// Pattern 3: complex multi-condition
+val canCompleteFullCycle = not(and {
+  delegations.size() == 0,
+  users.forall(u => rewards.get(u) == 0),
+  users.exists(u => balances.get(u) > INITIAL_BALANCE),
+})
+```
+
+Add one witness per major action. If a witness is always satisfied, the action has an over-constrained precondition or a bug.
+
+---
+
+## 8. Nondeterministic Testing Pattern
+
+Use `nondet` with `.oneOf()` for broad coverage with random value selection.
+
+```quint
+run nondetTest = {
+  nondet amount = 50.to(300).oneOf()
+  nondet user   = USERS.oneOf()
+  init
+    .then(transfer(user, "treasury", amount))
+    .expect(balances.get(user) >= 0)
+}
+```
+
+Multiple `nondet` bindings explore combinations. The simulator picks values pseudo-randomly; use `--seed` to reproduce a specific run.
+
+---
+
+## 9. Separate Test Files Pattern
+
+Main spec has no `run` definitions. Tests live in a separate file that imports the spec.
+
+```quint
+// system.qnt — main spec, no tests
+module system {
+  // ... spec only ...
+}
+
+// systemTest.qnt — tests only
+module systemTest {
+  import system.* from "./system"
+
+  run basicTest = {
+    init
+      .then(transfer("alice", "bob", 50))
+      .expect(balances.get("alice") == INITIAL_BALANCE - 50)
+  }
+}
+```
+
+Run tests with:
+```bash
+quint test systemTest.qnt --main systemTest --match basicTest
+```
+
+---
+
+## 10. REPL-First Debugging
+
+Test pure functions and action sequences in the REPL before writing formal tests. If REPL output surprises you, the spec has a bug.
+
+```bash
+# Test a pure function with a hand-crafted state
+echo 'val s = {balances: Set("alice").mapBy(_ => 100)}
+transfer(s, "alice", "bob", 50)' | quint repl -r system.qnt::system
+
+# Test an action sequence
+echo 'init
+transfer("alice", "bob", 50)
+balances' | quint repl -r system.qnt::system
+```
+
+Anonymous actions are also useful for forcing specific state in the REPL:
+
+```quint
+>>> all { balances' = Set("alice").mapBy(_ => 999), owner' = "alice" }
+true
+>>> balances
+Map("alice" -> 999)
+```
+
+---
+
+## 11. Separate Concerns First
+
+Before writing any Quint, partition the protocol into three buckets:
+
+- **State machine** — variables, initialization, transitions
+- **Functional logic** — pure computations: quorum checks, message filtering, state updates
+- **Properties** — invariants, witnesses, temporal properties
+
+This partition maps directly to Quint: state machine → `var` + actions, functional logic → `pure def`, properties → `val` invariants + witnesses. Trying to translate everything at once produces specs where logic ends up in the wrong layer.
+
+---
+
+## 12. Extract the System Model
+
+Before writing `var` declarations, identify the protocol's assumptions explicitly. These become `const` and `assume` in Quint — they're easy to miss when implicit in prose or TLA+.
+
+| Concern | Questions to answer |
+| --- | --- |
+| **Communication** | Reliable or lossy? Ordered or unordered? Broadcast or point-to-point? |
+| **Failures** | Crash-stop? Crash-recovery? Byzantine? What fraction `f` of `n`? |
+| **Time** | Synchronous? Asynchronous? Partial synchrony? Are timeouts modelled? |
+| **Participants** | Fixed membership or dynamic? How many processes? |
+
+```quint
+pure val N: int = 4          // total processes
+pure val F: int = 1          // max faulty
+
+assume quorumMajority = 2 * F < N
+```
+
+If an assumption is wrong, every invariant built on top of it is wrong. Surface them before building anything else.
+
+---
+
+## 13. Types-First Scaffolding
+
+Define all types and run `quint typecheck` before writing any logic. A spec that compiles with only types and `var` declarations is a solid foundation. A spec with correct logic but misaligned types is hard to untangle.
+
+```quint
+// Step 1: define all types
+type Entry   = { term: int, value: str }
+type NodeState = { log: List[Entry], votedFor: Option[int], currentTerm: int }
+type Message =
+  | VoteRequest({ term: int, src: int })
+  | VoteResponse({ term: int, src: int, granted: bool })
+
+// Step 2: declare vars — no logic yet
+var nodes:    int -> NodeState
+var messages: Set[Message]
+
+// Step 3: quint typecheck — must pass before proceeding
+```
+
+Use the full type system: records for structured state, sum types for messages with distinct shapes, `NodeId -> LocalState` maps for per-process state, `Set[Message]` for the message soup.
+
+**Iterate with the user at this step.** Show the type sketch and get explicit approval before writing any functions or actions.
+
+---
+
+## 14. Logic Stubs Pattern
+
+Write correct `pure def` signatures with placeholder bodies that compile. Fill in real logic one function at a time, testing each in the REPL before moving to the next.
+
+```quint
+// ✅ Stub — correct signature, placeholder body, compiles
+pure def isQuorum(voters: Set[int], allNodes: Set[int]): bool =
+  false  // TODO
+
+pure def applyEntry(state: NodeState, entry: Entry): NodeState =
+  state  // TODO
+
+// Later — fill in one at a time and test in REPL
+pure def isQuorum(voters: Set[int], allNodes: Set[int]): bool =
+  voters.size() * 2 > allNodes.size()
+```
+
+**Why stubs first**: type mismatches surface at the signature level before logic exists, when they're cheap to fix. A full stub pass also forces you to think through every function's inputs and outputs before committing to an implementation.
+
+Only move to the state machine (actions, `init`, `step`) after all stubs compile and all logic is tested.
