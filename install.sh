@@ -20,6 +20,8 @@ set -euo pipefail
 
 REPO_URL="${QS_REPO_URL:-https://github.com/quint-co/quint-llm-kit.git}"
 REPO_DIR="${QS_DIR:-$HOME/.quint-llm-kit/repo}"
+PLUGIN_DIR="$REPO_DIR/quint-llm-kit-plugin"
+PLUGIN_LINK="$HOME/.quint-llm-kit-plugin"
 
 # Platform table — id|skills-target-dir|style
 # style "per-skill": one symlink per skill into the target dir
@@ -98,7 +100,7 @@ clone_or_update() {
   fi
 }
 
-skills_root() { printf '%s\n' "$REPO_DIR/skills"; }
+skills_root() { printf '%s\n' "$PLUGIN_DIR/skills"; }
 
 list_skills() {
   local root
@@ -155,7 +157,7 @@ unlink_skills() {
         for link in "$target"/*; do
           [[ -L "$link" ]] || continue
           resolved="$(readlink "$link" 2>/dev/null || true)"
-          [[ "$resolved" == *"/.quint-llm-kit/repo/skills/"* ]] || continue
+          [[ "$resolved" == "$PLUGIN_DIR/skills/"* ]] || continue
           rm -f "$link"
         done
       fi
@@ -164,6 +166,15 @@ unlink_skills() {
       [[ -L "$target/quint-llm-kit" ]] && rm -f "$target/quint-llm-kit"
       ;;
   esac
+}
+
+link_plugin_root() {
+  if [[ -L "$PLUGIN_LINK" || -e "$PLUGIN_LINK" ]]; then
+    printf '  • %s already exists, leaving as-is\n' "$PLUGIN_LINK"
+  else
+    ln -s "$PLUGIN_DIR" "$PLUGIN_LINK"
+    printf '  ✓ %s → %s\n' "$PLUGIN_LINK" "$PLUGIN_DIR"
+  fi
 }
 
 cmd_install() {
@@ -176,6 +187,8 @@ cmd_install() {
   clone_or_update
   printf -- '→ Linking skills for %s (%s → %s)\n' "$id" "$style" "$target"
   link_skills "$target" "$style"
+  printf -- '→ Linking universal plugin root\n'
+  link_plugin_root
 
   printf '\n✓ Installed Quint Skills for %s\n' "$id"
   printf '  Restart your CLI or IDE to pick up the skills.\n'
@@ -194,6 +207,10 @@ cmd_uninstall() {
 
   printf -- '→ Removing skill links for %s\n' "$id"
   unlink_skills "$target" "$style"
+  if [[ -L "$PLUGIN_LINK" ]]; then
+    rm -f "$PLUGIN_LINK"
+    printf '  ✓ removed %s\n' "$PLUGIN_LINK"
+  fi
   if [[ -d "$REPO_DIR" ]]; then
     printf '\nThe checkout at %s was kept (other platforms may still use it).\n' "$REPO_DIR"
     printf 'To remove it: rm -rf "%s"\n' "$REPO_DIR"

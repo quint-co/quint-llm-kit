@@ -22,8 +22,10 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$RepoUrl = if ($env:QS_REPO_URL) { $env:QS_REPO_URL } else { 'https://github.com/quint-co/quint-llm-kit.git' }
-$RepoDir = if ($env:QS_DIR)      { $env:QS_DIR }      else { Join-Path $HOME '.quint-llm-kit\repo' }
+$RepoUrl    = if ($env:QS_REPO_URL) { $env:QS_REPO_URL } else { 'https://github.com/quint-co/quint-llm-kit.git' }
+$RepoDir    = if ($env:QS_DIR)      { $env:QS_DIR }      else { Join-Path $HOME '.quint-llm-kit\repo' }
+$PluginDir  = Join-Path $RepoDir 'quint-llm-kit-plugin'
+$PluginLink = Join-Path $HOME '.quint-llm-kit-plugin'
 
 # Platform table — Target = skills directory; Style = "per-skill" | "folder"
 $Platforms = [ordered]@{
@@ -80,7 +82,7 @@ function Prompt-Platform {
     return $ids[$n - 1]
 }
 
-function Get-SkillsRoot { Join-Path $RepoDir 'skills' }
+function Get-SkillsRoot { Join-Path $PluginDir 'skills' }
 
 function Clone-Or-Update {
     if (Test-Path (Join-Path $RepoDir '.git')) {
@@ -166,7 +168,7 @@ function Unlink-Skills([string]$Target, [string]$Style) {
                 # into our skills tree so we can still clean up.
                 Get-ChildItem -LiteralPath $Target -Force | ForEach-Object {
                     if ($_.LinkType -eq 'Junction' -or $_.LinkType -eq 'SymbolicLink') {
-                        if ($_.Target -match '\.quint-llm-kit[\\/]+repo[\\/]+skills[\\/]+') {
+                        if ($_.Target -like "$PluginDir\skills\*") {
                             Remove-Reparse $_.FullName | Out-Null
                         }
                     }
@@ -179,11 +181,22 @@ function Unlink-Skills([string]$Target, [string]$Style) {
     }
 }
 
+function Link-Plugin-Root {
+    if (Test-Path $PluginLink) {
+        Write-Host "  • $PluginLink already exists, leaving as-is"
+    } else {
+        New-Item -ItemType Junction -Path $PluginLink -Target $PluginDir | Out-Null
+        Write-Host "  OK $PluginLink -> $PluginDir"
+    }
+}
+
 function Cmd-Install([string]$Id) {
     $cfg = Resolve-Platform $Id
     Clone-Or-Update
     Write-Host "-> Linking skills for $Id ($($cfg.Style) -> $($cfg.Target))"
     Link-Skills $cfg.Target $cfg.Style
+    Write-Host '-> Linking universal plugin root'
+    Link-Plugin-Root
 
     Write-Host "`nInstalled Quint Skills for $Id"
     Write-Host '  Restart your CLI or IDE to pick up the skills.'
@@ -197,6 +210,9 @@ function Cmd-Uninstall([string]$Id) {
     $cfg = Resolve-Platform $Id
     Write-Host "-> Removing skill links for $Id"
     Unlink-Skills $cfg.Target $cfg.Style
+    if (Remove-Reparse $PluginLink) {
+        Write-Host "  OK removed $PluginLink"
+    }
     if (Test-Path $RepoDir) {
         Write-Host "`nThe checkout at $RepoDir was kept (other platforms may still use it)."
         Write-Host "To remove it: Remove-Item -Recurse -Force '$RepoDir'"

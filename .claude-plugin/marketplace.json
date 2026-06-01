@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "quint-llm-kit",
-      "source": "."
+      "source": "./quint-llm-kit-plugin"
     }
   ]
 }

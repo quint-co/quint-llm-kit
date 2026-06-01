@@ -10,5 +10,5 @@
   "repository": "https://github.com/quint-co/quint-llm-kit",
   "license": "Apache-2.0",
   "keywords": ["quint", "formal-verification", "model-checking", "distributed-systems", "tla-plus", "specification"],
-  "skills": "./skills/"
+  "skills": "./quint-llm-kit-plugin/skills/"
 }
