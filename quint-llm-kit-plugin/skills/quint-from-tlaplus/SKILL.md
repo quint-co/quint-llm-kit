@@ -1,5 +1,5 @@
 ---
-name: tlaplus-to-quint
+name: quint-from-tlaplus
 description: >
   Generate a Quint specification from an existing TLA+ spec. Analyzes spec to understand its purpose, maintains characteristics of TLA+ spec, writes an
   executable Quint spec following best practices, and proposes invariants and witnesses. Use when

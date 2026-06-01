@@ -88,21 +88,21 @@ which will suggest potential next things you can try. This works from the very s
 
 > **Two paths, same goal.**
 > The `agentic/` commands (above) are the **Docker-native path**: they run inside the container, use MCP servers for the Quint REPL, and are optimised for Claude Code.
-> The `skills/` below are the **lightweight path**: plain `quint` CLI, no Docker, any agent.
+> The `quint-llm-kit-plugin/skills/` below are the **lightweight path**: plain `quint` CLI, no Docker, any agent.
 > Both cover Quint spec work — pick whichever fits your setup. If you are already in the Docker environment, prefer the slash commands; if you are not, install the skills.
 
-The `skills/` directory contains standalone agent skills for working with Quint. They work independently of Docker — install them directly into your AI agent of choice.
+The `quint-llm-kit-plugin/skills/` directory contains standalone agent skills for working with Quint. They work independently of Docker — install them directly into your AI agent of choice.
 
 | Skill | What it does |
 |---|---|
-| [`quint-lang`](skills/quint-lang/SKILL.md) | Full Quint language reference, CLI toolchain, distributed protocol patterns |
-| [`quint-from-code`](skills/quint-from-code/SKILL.md) | Generate a Quint spec from source code (Rust, Go, TypeScript, …) or TLA+ |
-| [`quint-execute-spec`](skills/quint-execute-spec/SKILL.md) | Implement code grounded by an existing Quint spec |
-| [`tlaplus-to-quint`](skills/tlaplus-to-quint/SKILL.md) | Translate a TLA+ spec to Quint |
-| [`quint-spec-review`](skills/quint-spec-review/SKILL.md) | Audit a spec for quality, patterns, and correctness |
-| [`design-verification-framing`](skills/design-verification-framing/SKILL.md) | Frame properties and explain simulation outcomes |
-| [`design-model-building-blocks`](skills/design-model-building-blocks/SKILL.md) | Derive model structure from plain-English requirements |
-| [`spec-plain-english-explanation`](skills/spec-plain-english-explanation/SKILL.md) | Walk through a spec for engineers unfamiliar with formal methods |
+| [`quint-lang`](quint-llm-kit-plugin/skills/quint-lang/SKILL.md) | Full Quint language reference, CLI toolchain, distributed protocol patterns |
+| [`quint-from-code`](quint-llm-kit-plugin/skills/quint-from-code/SKILL.md) | Generate a Quint spec from source code (Rust, Go, TypeScript, …) or TLA+ |
+| [`quint-execute-spec`](quint-llm-kit-plugin/skills/quint-execute-spec/SKILL.md) | Implement code grounded by an existing Quint spec |
+| [`quint-from-tlaplus`](quint-llm-kit-plugin/skills/quint-from-tlaplus/SKILL.md) | Translate a TLA+ spec to Quint |
+| [`quint-spec-review`](quint-llm-kit-plugin/skills/quint-spec-review/SKILL.md) | Audit a spec for quality, patterns, and correctness |
+| [`quint-verification-framing`](quint-llm-kit-plugin/skills/quint-verification-framing/SKILL.md) | Frame properties and explain simulation outcomes |
+| [`quint-model-building`](quint-llm-kit-plugin/skills/quint-model-building/SKILL.md) | Derive model structure from plain-English requirements |
+| [`quint-spec-explainer`](quint-llm-kit-plugin/skills/quint-spec-explainer/SKILL.md) | Walk through a spec for engineers unfamiliar with formal methods |
 
 ### Install skills
 

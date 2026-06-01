@@ -1,5 +1,5 @@
 ---
-name: design-model-building-blocks
+name: quint-model-building
 description: >
   Build Quint-ready model structure from requirements in plain English. Use this whenever the agent
   is translating requirements into the spec skeleton: what the system remembers, what can happen,

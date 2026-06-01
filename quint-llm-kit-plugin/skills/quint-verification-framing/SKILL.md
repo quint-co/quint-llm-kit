@@ -1,5 +1,5 @@
 ---
-name: design-verification-framing
+name: quint-verification-framing
 description: >
   Property and simulation framing for Quint workflows. Use this whenever defining invariants,
   witnesses, and temporal expectations, scoring property impact, or explaining simulation outcomes

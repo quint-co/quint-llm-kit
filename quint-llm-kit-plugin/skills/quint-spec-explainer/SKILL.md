@@ -1,5 +1,5 @@
 ---
-name: spec-plain-english-explanation
+name: quint-spec-explainer
 description: >
   Plain-English walkthrough of a Quint spec for engineers unfamiliar with formal methods:
   what it models, state, transitions, properties, and explicit non-goals. Parameter: spec file path
