@@ -4,6 +4,13 @@ Choreo is a structured framework for writing distributed protocol specs in Quint
 
 **Use Choreo when:** consensus protocols (Raft, Paxos, Tendermint, HotStuff), BFT protocols, multi-phase commit, any message-passing protocol with N processes.
 
+## Contents
+
+- [1. Two-File Split](#1-two-file-split)
+- [2. The `choreo::cue` Pattern](#2-the-choreocue-pattern)
+- [3. Testing with Cues](#3-testing-with-cues)
+- [4. Witness-Based Test Discovery](#4-witness-based-test-discovery)
+
 **Import:**
 ```quint
 import choreo(processes = NODES) as choreo from "./choreo"

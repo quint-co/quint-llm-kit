@@ -1,5 +1,16 @@
 # Quint CLI Reference
 
+## Contents
+
+- [Installation](#installation)
+- [Commands Overview](#commands-overview)
+- [`quint run` — Simulation](#quint-run--simulation)
+- [`quint test` — Deterministic Tests](#quint-test--deterministic-tests)
+- [`quint verify` — Model Checking](#quint-verify--model-checking)
+- [`quint typecheck`](#quint-typecheck)
+- [Reading Output](#reading-output)
+- [Verbosity Guide](#verbosity-guide)
+
 ## Installation
 
 ```bash

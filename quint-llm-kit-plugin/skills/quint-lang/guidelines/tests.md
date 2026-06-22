@@ -1,5 +1,13 @@
 # Writing and Debugging Tests
 
+## Contents
+
+- [File Structure](#file-structure)
+- [Writing Tests](#writing-tests)
+- [Running Tests](#running-tests)
+- [Debugging Failures](#debugging-failures)
+- [REPL-First Debugging](#repl-first-debugging)
+
 ## File Structure
 
 Tests live in a separate file that imports the main spec. The main spec has no `run` definitions.
@@ -72,11 +80,16 @@ run cannotDoubleVote =
 
 ### Assert mid-trace
 
+An `assert` must sit inside an `all { }` block that also assigns the state
+variables. A standalone `.then(assert(...))` step assigns nothing, so its effect
+cannot unify with the rest of the trace and the test fails to typecheck. For an
+after-the-fact check, use `.expect(...)` instead of a trailing assert step.
+
 ```quint
 run checkTiming =
   init
     .then(all { vote(1), assert(votes.size() == 0) })  // assert BEFORE vote executes
-    .then(assert(votes.size() == 1))                    // assert AFTER
+    .expect(votes.size() == 1)                          // assert AFTER
 ```
 
 ### Nondeterministic tests

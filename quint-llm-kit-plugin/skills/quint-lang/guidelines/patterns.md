@@ -2,6 +2,23 @@
 
 Core patterns for writing correct, testable Quint specifications.
 
+## Contents
+
+- [1. State Type Pattern](#1-state-type-pattern)
+- [2. Pure Functions Pattern](#2-pure-functions-pattern)
+- [3. Thin Actions Pattern](#3-thin-actions-pattern)
+- [4. Map Pre-population Pattern](#4-map-pre-population-pattern)
+- [5. Syntax Rules](#5-syntax-rules)
+- [6. Undefined Behavior — What to Guard Against](#6-undefined-behavior--what-to-guard-against)
+- [7. Action Witnesses Pattern](#7-action-witnesses-pattern)
+- [8. Nondeterministic Testing Pattern](#8-nondeterministic-testing-pattern)
+- [9. Separate Test Files Pattern](#9-separate-test-files-pattern)
+- [10. REPL-First Debugging](#10-repl-first-debugging)
+- [11. Separate Concerns First](#11-separate-concerns-first)
+- [12. Extract the System Model](#12-extract-the-system-model)
+- [13. Types-First Scaffolding](#13-types-first-scaffolding)
+- [14. Logic Stubs Pattern](#14-logic-stubs-pattern)
+
 ---
 
 ## 1. State Type Pattern
@@ -75,15 +92,17 @@ All business logic goes in pure functions. Actions are thin wrappers that call t
 
 ```quint
 // Pure function: takes State, returns {success, newState}
-pure def transfer(state: State, from: str, to: str, amount: int): {success: bool, newState: State} = {
+// Note: the pure function and its action wrapper must have DIFFERENT names —
+// a pure def and an action cannot share a name in the same module (QNT101).
+pure def applyTransfer(state: State, sender: str, recipient: str, amount: int): {success: bool, newState: State} = {
   val canTransfer = and {
-    state.balances.get(from) >= amount,
+    state.balances.get(sender) >= amount,
     amount > 0,
   }
   if (canTransfer) {
     val newBalances = state.balances
-      .setBy(from, b => b - amount)
-      .setBy(to,   b => b + amount)
+      .setBy(sender,    b => b - amount)
+      .setBy(recipient, b => b + amount)
     {success: true, newState: {...state, balances: newBalances}}
   } else {
     {success: false, newState: state}
@@ -93,6 +112,8 @@ pure def transfer(state: State, from: str, to: str, amount: int): {success: bool
 
 **Why**: Pure functions can be tested directly in the REPL with any state. Logic in actions can only be tested by running the full state machine.
 
+> `to` is a built-in operator (`i.to(j)`), so it cannot be used as a parameter name — that is why the parameters here are `sender`/`recipient` rather than `from`/`to`.
+
 ---
 
 ## 3. Thin Actions Pattern
@@ -100,8 +121,8 @@ pure def transfer(state: State, from: str, to: str, amount: int): {success: bool
 Actions do exactly three things: call the pure function, check success, update the grouped state variable.
 
 ```quint
-action transfer(from: str, to: str, amount: int): bool = {
-  val result = transfer(state, from, to, amount)
+action transfer(sender: str, recipient: str, amount: int): bool = {
+  val result = applyTransfer(state, sender, recipient, amount)
   if (result.success) {
     state' = result.newState
   } else {
@@ -110,7 +131,7 @@ action transfer(from: str, to: str, amount: int): bool = {
 }
 ```
 
-No conditional logic in actions beyond the `result.success` check.
+The action `transfer` wraps the pure `applyTransfer` — distinct names, since a `pure def` and an `action` cannot share a name. No conditional logic in actions beyond the `result.success` check.
 
 For cohesive local state, avoid decomposing one concept into many top-level vars (`var id`, `var phase`, `var round`, ...). Prefer a `type LocalState` record and one `var localState: LocalState`.
 
@@ -178,7 +199,7 @@ These operations have undefined behavior if preconditions aren't met:
 | Operation | Unsafe when | Safe alternative |
 | --- | --- | --- |
 | `map.get(key)` | key not in map | Pre-populate with `mapBy`, or check `map.keys().contains(key)` |
-| `set.getOnlyElement()` | set size ≠ 1 | `chooseSome()` (deterministic) or `oneOf()` (nondeterministic) |
+| `set.getOnlyElement()` | set size ≠ 1 | `oneOf()` inside a `nondet` binding (nondeterministic), or guard the size to 1 first |
 | `list.head()` / `list.tail()` | list is empty | Check `list.length() > 0` first |
 | `list.nth(i)` | i < 0 or i ≥ length | Check `i >= 0 and i < list.length()` |
 | `range(i, j)` / `i.to(j)` | i > j | Ensure `i <= j` |
@@ -335,6 +356,8 @@ Define all types and run `quint typecheck` before writing any logic. A spec that
 
 ```quint
 // Step 1: define all types
+// (Option is not built in — it comes from basicSpells; import it or define
+//  `type Option[a] = Some(a) | None` yourself.)
 type Entry   = { term: int, value: str }
 type NodeState = { log: List[Entry], votedFor: Option[int], currentTerm: int }
 type Message =

@@ -1,5 +1,13 @@
 # Verification — Witnesses, Invariants, and Test Interpretation
 
+## Contents
+
+- [Critical Distinction](#critical-distinction)
+- [Witnesses (Liveness — Protocol Makes Progress)](#witnesses-liveness--protocol-makes-progress)
+- [Invariants (Safety — Properties Hold)](#invariants-safety--properties-hold)
+- [Trace Analysis](#trace-analysis)
+- [Result Classification](#result-classification)
+
 ## Critical Distinction
 
 Witnesses and invariants are **opposite** in what a good result means:

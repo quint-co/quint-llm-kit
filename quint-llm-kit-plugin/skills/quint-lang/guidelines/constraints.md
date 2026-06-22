@@ -2,6 +2,17 @@
 
 **CRITICAL**: These are fundamental limitations of the Quint language. Violating these constraints will result in compilation errors that cannot be worked around.
 
+## Contents
+
+- [1. No String Manipulation](#1-no-string-manipulation)
+- [2. No Nested Pattern Matching](#2-no-nested-pattern-matching)
+- [3. No Destructuring](#3-no-destructuring)
+- [4. No Mutable Local Variables](#4-no-mutable-local-variables)
+- [5. No Loops](#5-no-loops)
+- [6. No Early Returns](#6-no-early-returns)
+- [7. Type Inference Limitations](#7-type-inference-limitations)
+- [Debugging Workflow](#debugging-workflow)
+
 ---
 
 ## 1. No String Manipulation
