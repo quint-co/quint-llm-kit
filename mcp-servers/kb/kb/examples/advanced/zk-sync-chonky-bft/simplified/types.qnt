@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 /**
  * Types for simplified ChonkyBFT.

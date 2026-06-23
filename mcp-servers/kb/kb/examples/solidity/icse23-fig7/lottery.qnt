@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 // A Quint version of the contract presented in Figure 7 of the paper:
 //
 // https://github.com/ZhangZhuoSJTU/Web3Bugs/blob/main/papers/icse23.pdf

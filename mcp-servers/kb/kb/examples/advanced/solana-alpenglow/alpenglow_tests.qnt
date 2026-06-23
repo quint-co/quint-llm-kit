@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 module alpenglow_tests {
   // quint test alpenglow_tests.qnt

@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 module doubleStateDexEvolution {
     import types.* from "types"
     import utils.* from "utils"

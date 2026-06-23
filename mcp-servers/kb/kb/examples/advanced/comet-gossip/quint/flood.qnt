@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 // File generated from markdown using https://github.com/driusan/lmt. DO NOT EDIT.
 

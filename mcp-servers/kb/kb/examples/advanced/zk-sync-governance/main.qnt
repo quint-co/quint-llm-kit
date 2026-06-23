@@ -1,5 +1,4 @@
 
-// -*- mode: Bluespec; -*-
 module main {
     import emergencyUpgradeBoard.* from "./emergencyUpgradeBoard"
     import guardians.* from "./guardians"

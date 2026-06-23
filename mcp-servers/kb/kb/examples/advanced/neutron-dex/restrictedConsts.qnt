@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 module restrictedConsts {
     import types.* from "types"
     import dec.* from "lib/dec"

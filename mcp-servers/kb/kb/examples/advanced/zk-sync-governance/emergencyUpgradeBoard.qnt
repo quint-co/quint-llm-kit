@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 module emergencyUpgradeBoard {
     import guardians.* from "./guardians"
     import hashing.* from "./hashing"

@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 module violationRuns {
     import dec.* from "lib/dec"
     import types.* from "types"

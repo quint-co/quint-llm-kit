@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 /**
  * The core of the Neutron DEX.

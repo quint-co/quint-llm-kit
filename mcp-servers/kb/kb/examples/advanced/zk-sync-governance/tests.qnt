@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 module tests {
     import guardians.* from "./guardians"
     import hashing.* from "./hashing"

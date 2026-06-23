@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 /**
  * Bounded signed integers with arbitrary bitwidth.

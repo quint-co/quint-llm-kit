@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 // Construction of proofs for Jellyfish Merke Trees
 //

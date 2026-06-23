@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 module postconditions {
     import dec.* from "lib/dec"

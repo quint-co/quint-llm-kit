@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 // Proof-related types to be used in proof construction and proof verification
 //

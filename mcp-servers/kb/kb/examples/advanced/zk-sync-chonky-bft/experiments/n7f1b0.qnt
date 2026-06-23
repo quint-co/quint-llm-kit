@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 //
 // A specification instance for n=6, f=1, and no Byzantine faults
 module n7f1b0 {

@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 // This file contains utility functions for ccv.qnt
 // that are not part of the API/core logic of ccv, but still relevant
 // for the functional logic of the protocol.

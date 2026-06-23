@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 // pure definitions
 module defs {

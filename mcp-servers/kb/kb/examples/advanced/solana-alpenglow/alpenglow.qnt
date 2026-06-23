@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 /**
  * Specification of Alpenglow Consensus [1]
  *

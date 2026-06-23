@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 module f_sig_ideal {
 
   import basicSpells.* from "../../spells/basicSpells"

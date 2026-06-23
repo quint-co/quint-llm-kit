@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 module System{
     type Process = str
     type Tx = str

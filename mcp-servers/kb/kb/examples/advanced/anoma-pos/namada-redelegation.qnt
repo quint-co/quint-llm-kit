@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 // ****************************************************************************
 //  This encodes the proof-of-stake system of Namada.
 //

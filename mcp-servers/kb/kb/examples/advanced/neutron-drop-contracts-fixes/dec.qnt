@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 /**
  * Rational numbers, represented as a tuple of (numerator, denominator)

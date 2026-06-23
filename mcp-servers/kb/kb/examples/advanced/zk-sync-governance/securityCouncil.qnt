@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 module securityCouncil {
     import hashing.* from "./hashing"
     import multisig.* from "./multisig"

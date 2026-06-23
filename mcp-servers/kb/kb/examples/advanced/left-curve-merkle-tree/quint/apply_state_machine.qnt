@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 // A state machine to simulate tree changes and invariants to be checked
 //

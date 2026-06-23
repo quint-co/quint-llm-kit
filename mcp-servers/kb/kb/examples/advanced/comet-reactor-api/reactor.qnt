@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 /*
  * Reactor is responsible for handling incoming messages on one or more
  * Channel. Switch calls ChannelDescriptors when reactor is added to it. When a new

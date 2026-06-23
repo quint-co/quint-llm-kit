@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 module baseDexEvolution {
     import dec.* from "lib/dec"
     import types.* from "types"

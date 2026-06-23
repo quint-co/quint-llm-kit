@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 /**
  * A module to check invariants of the Mysticeti consensus algorithm [1] over an evolving DAG

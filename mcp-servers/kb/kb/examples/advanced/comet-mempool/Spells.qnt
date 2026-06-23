@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 module Spells{
     pure def require(cond: bool): bool = cond
 

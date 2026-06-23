@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 // Run with:
 // quint run instance.qnt --max-steps 50 --invariant missing_tip_w --hide monadbft::choreo::s

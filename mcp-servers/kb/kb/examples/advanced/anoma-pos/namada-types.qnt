@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 /**
  *
  * Manuel Bravo, Informal Systems, 2023

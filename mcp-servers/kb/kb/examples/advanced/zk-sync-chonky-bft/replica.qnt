@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 module replica {
     import types.* from "./types"

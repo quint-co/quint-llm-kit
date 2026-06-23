@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 module bookkeeping {
     import basicSpells.* from "lib/basicSpells"
     import utils.* from "utils"

@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 // contains test logic for the stateless functions in the CCV module
 module ccv_test {
