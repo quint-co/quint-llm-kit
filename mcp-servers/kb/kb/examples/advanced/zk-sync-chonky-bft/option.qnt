@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 // a typical option type, defined as a sum type in Quint
 module option {

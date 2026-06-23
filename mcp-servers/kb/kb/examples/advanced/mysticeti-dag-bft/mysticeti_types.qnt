@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 /**
  * Types and basic functionality for the Mysticeti consensus algorithm in `mysticeti_c.qnt`

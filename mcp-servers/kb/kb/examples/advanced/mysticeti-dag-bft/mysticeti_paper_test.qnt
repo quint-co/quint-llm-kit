@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 /**
  * A test describing the scenario presented in Appendix A on the Mysticeti paper [1] 

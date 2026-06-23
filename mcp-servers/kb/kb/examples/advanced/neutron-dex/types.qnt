@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 module types {
     import dec.* from "lib/dec"
 

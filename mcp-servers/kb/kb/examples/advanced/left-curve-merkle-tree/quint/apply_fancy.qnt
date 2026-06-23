@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 // Grug's algorithm to apply batches of operations to Jellyfish Merkle Trees
 //

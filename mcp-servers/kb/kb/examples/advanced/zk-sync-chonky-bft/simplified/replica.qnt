@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 /**
  * Replica in simplified ChonkyBFT.

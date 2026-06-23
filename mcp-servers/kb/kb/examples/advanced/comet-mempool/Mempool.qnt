@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 // A mempool is a replicated set of transactions which is used as an input by a ledger.
 // Below, we follow the specification given here:
 // https://github.com/cometbft/knowledge-base/blob/main/protocols/mempool-overview.md

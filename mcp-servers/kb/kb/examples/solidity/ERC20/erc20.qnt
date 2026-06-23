@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 /**
  * A specification of simple ERC20 that should be easy to use in other specs.

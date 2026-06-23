@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 module systemTest {
   import System.* from "./system"

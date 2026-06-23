@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 /**
  * Information gathering to help understand how a decision was taken.

@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 module monadbft {
   import basicSpells.* from "./spells/basicSpells"

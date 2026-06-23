@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 module protocolTest {
   // 1. IMPORT PROTOCOL WITH PARAMETERS

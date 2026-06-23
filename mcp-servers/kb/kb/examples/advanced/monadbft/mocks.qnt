@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 module mocks {
   import basicSpells.* from "./spells/basicSpells"

@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 module migration_fuzzing {    
     import types.* from "types"
     import basicSpells.* from "basicSpells"

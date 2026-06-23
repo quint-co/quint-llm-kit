@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 // An executable specification of the bank module
 module bank {
   //----------------------- type declarations -------------------------

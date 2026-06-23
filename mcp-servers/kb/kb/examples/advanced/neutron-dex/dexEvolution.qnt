@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 module dexEvolution {
     import basicSpells.* from "lib/basicSpells"
     import dec from "lib/dec"

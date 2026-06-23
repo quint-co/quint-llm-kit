@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 // The common consensus abstraction for blockchain where processes agree on a block (that is, a set of transactions).
 
 module Consensus{

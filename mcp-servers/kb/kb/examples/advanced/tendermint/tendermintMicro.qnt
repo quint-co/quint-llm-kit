@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 module tendermint {
   import basicSpells.* from "./spells/basicSpells"
   import rareSpells.* from "./spells/rareSpells"

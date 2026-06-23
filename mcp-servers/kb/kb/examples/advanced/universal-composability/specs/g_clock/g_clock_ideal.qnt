@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 module g_clock_ideal {
 
   import basicSpells.* from "../../spells/basicSpells"

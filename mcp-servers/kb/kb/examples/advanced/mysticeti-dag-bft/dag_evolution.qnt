@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 /**
  * A state machine for how a DAG can evolve over time.

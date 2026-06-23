@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 module ccv_types {
     import Time.* from "./libraries/Time"
     import extraSpells.* from "./libraries/extraSpells"

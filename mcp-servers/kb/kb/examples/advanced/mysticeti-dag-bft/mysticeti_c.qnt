@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 /**
  * Functional Mysticeti consensus algorithm [1].

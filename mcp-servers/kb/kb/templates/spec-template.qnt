@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 module System {
   // 1. TYPES - Define your data structures

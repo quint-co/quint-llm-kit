@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 // A Ledger is a replicated log of blocks.
 // The specification below considers that
 // - replication is made with consensus (see Consensus.qnt)

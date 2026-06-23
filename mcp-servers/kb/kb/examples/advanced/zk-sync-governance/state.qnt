@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 module state {
     import types.* from "./types"
     import hashing.* from "./hashing"

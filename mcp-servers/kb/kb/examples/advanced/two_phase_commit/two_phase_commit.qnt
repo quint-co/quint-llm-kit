@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 module two_phase_commit {
   import basicSpells.* from "./spells/basicSpells"

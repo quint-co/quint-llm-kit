@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 module f_nizk_ideal {
 
   import basicSpells.* from "../../spells/basicSpells"

@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 /**
  * A specification of the ICS20 fungible token transfer protocol:

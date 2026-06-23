@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 module ccv_model {
     // A basic stateful model that utilizes the CCV protocol.
     import ccv_types.* from "./ccv"

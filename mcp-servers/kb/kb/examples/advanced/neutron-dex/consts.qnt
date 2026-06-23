@@ -1,4 +1,3 @@
-// -*- mode: Bluespec; -*-
 
 module consts {
     import types.* from "types"
