@@ -2,6 +2,15 @@
 
 This is the intake flow for translating an existing TLA+ specification into Quint. Do the TLA+-specific intake and design decisions below, then follow the shared modelling spine (Steps 1–7) in `quint-modeling/SKILL.md`.
 
+## Contents
+
+- **Philosophy: fidelity** — what the translation must preserve
+- **The "Maintain" rules** — CONSTANT/ASSUME, abstract sets, sentinel constants, EXTENDS
+- **The "Change" rules** — where idiomatic Quint diverges (local state, thin actions, message soup → Choreo, listen/send naming)
+- **Phase 1: TLA+ intake** — Steps 1.1–1.4 (domain, EXTENDS, CHOOSE, variables, actions, system model)
+- **TLA+-specific output format** — editor mode line, `NameAnalysis` module, `README.md`
+- **TLA+-specific pitfalls** — the gotcha table
+
 ## Philosophy: fidelity
 
 TLA+ specs have precise semantics that must be maintained. Most TLA+ specs translate close to one-to-one, but Quint offers modern syntax that reads better. The goal is a readable Quint spec **where the TLA+↔Quint mapping is obvious**.
@@ -89,7 +98,7 @@ These are the places where idiomatic Quint diverges from the TLA+ structure.
   }
   ```
 
-- **Message soup → consider Choreo.** A TLA+ message soup (a `msgs` variable, a `Send(m)` helper, or any `\cup {m}` pattern on a message set) is a strong signal the protocol is genuinely message-passing — **raise Choreo in design before writing any code, unless the protocol is single-actor or simple enough that plain Quint is clearer** (see the spine's "When to use Choreo"). When it fits, use Choreo (`../quint-lang/guidelines/choreo`) and ask the user to confirm the node/role decomposition (which processes send/receive which message types, whether to introduce an explicit leader). The TLA+ soup is monotone (messages are never deleted) — decide whether Choreo inboxes should consume messages or leave them in place.
+- **Message soup → consider Choreo.** A TLA+ message soup (a `msgs` variable, a `Send(m)` helper, or any `\cup {m}` pattern on a message set) is a strong signal the protocol is genuinely message-passing — **raise Choreo in design before writing any code, unless the protocol is single-actor or simple enough that plain Quint is clearer** (see the spine's "When to use Choreo"). When it fits, use Choreo (`../quint-lang/guidelines/choreo.md`) and ask the user to confirm the node/role decomposition (which processes send/receive which message types, whether to introduce an explicit leader). The TLA+ soup is monotone (messages are never deleted) — decide whether Choreo inboxes should consume messages or leave them in place.
 
 - **Choreo `listen_*` / `send_*` naming.** `listen_X` is named after what it watches for (the triggering condition or incoming message type); `send_X` is named after the message type it produces (= the TLA+ operator name). E.g., TLA+ `Phase2b(a,b,v)` is triggered by a Phase2a message → `listen_phase2a` / `send_phase2b`. For an initial step with no incoming message, use a descriptive name like `listen_start` or `listen_phase1b_quorum`. The `main_listener` then reads as a direct transliteration of the TLA+ `Next` definition.
 
@@ -263,4 +272,4 @@ This is the spine's Step 7 handoff, in TLA+-translation form. It documents the t
 | `m::f` fails at runtime with "Uninitialized const" when passed as a higher-order argument | `f` closes over a `const` from module `M`; Quint does not propagate const bindings through higher-order calls across module boundaries. Fix: rewrite `f` to avoid const references — use the type structure (e.g. `x != SentinelA and x != SentinelB` rather than `Values.contains(x)`) |
 | `paxos::TypeOKInvariant` (a `val`) fails at runtime with "Uninitialized const" | Quint does not propagate `const` bindings when a `val` is accessed across module boundaries, even without higher-order calls. Fix: extract the invariant body into a `pure def` taking the consts as explicit parameters, then call it from both the base `val` and the extending module (see EXTENDS section) |
 | TLA+ `CHOOSE` | No direct Quint equivalent. Flag each occurrence to the user (Step 1.1c) and get an approved approach — nondet, deterministic helper, or const — before translating |
-| Parenthetical insertions with em-dashes in README or Quint comments | Do not write sentences that insert a clause between em-dashes ("X — which does Y — Z"). Use separate sentences or plain parentheses instead |
+| Parenthetical insertions with em-dashes in README or Quint comments | In *generated output* (the spec, its comments, the README) — not this guideline's own prose — do not write sentences that insert a clause between em-dashes ("X — which does Y — Z"). Use separate sentences or plain parentheses instead |

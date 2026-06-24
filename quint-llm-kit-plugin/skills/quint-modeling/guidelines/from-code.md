@@ -4,6 +4,15 @@ This is the **code-intake flow**: extract a system's structure from source code 
 TypeScript, …). It carries only the code-specific intake; **after intake, follow the shared
 spine (Steps 1–7) in `../SKILL.md`.**
 
+## Contents
+
+- **Why a spec from code** — the spec as a persistent grounding artifact
+- **Phase 0: Research (compact)** — catalog the codebase before deep reading
+- **Phase 1: Understand the code** — Steps 1.1–1.4 (domain, operations, state vars, system model)
+- **The source-construct → Quint mapping** — the construct translation table
+- **After intake** — hand off to the shared spine
+- **Handoff** — spine Step 7 plus a source-file correspondence map
+
 ## Why a spec from code
 
 **The spec is a persistent grounding artifact, not throwaway output.** It is the source of
