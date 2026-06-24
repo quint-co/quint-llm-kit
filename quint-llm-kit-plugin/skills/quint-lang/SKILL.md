@@ -5,8 +5,10 @@ description: >
   systems. Covers the full Quint language, CLI toolchain, distributed protocols and
   concurrent algorithms, and formal verification. Use when: writing/debugging .qnt files,
   modeling distributed systems, verifying safety properties, analyzing invariant violations, optimizing
-  state space exploration, or translating TLA+. Keywords: quint, model checking, formal verification,
-  TLA+, distributed systems, concurrent systems, complex behaviours, specification language.
+  state space exploration, or translating an existing TLA+ spec into Quint. This is for working in
+  Quint — not for analyzing or running TLA+/TLC itself. Keywords: quint, model checking, formal
+  verification, TLA+-to-Quint translation, distributed systems, concurrent systems, complex behaviours,
+  specification language.
 ---
 # Quint Language Reference
 
@@ -430,12 +432,28 @@ p.implies(q)       // p => q
 
 ---
 
-## Assume (axioms)
+## Assume
 
 ```quint
 assume nodeCountPositive = N > 0
 assume quorumMajority = 2 * quorum > N
 ```
+
+An `assume` states a premise about constants, but it is **not enforced** — a violated `assume`
+is silently ignored by `quint typecheck`, `quint run`, and `quint verify` (none of them flags
+it). It is documentation, not a checked constraint. To actually *check* a condition on
+constants, write a `run` test that asserts it (it executes and fails when the condition is
+false):
+
+```quint
+run quorumAssumptionTest = all {
+  2 * quorum > N,
+  N > 0,
+}
+```
+
+Run it with `quint test`; the test fails (reporting which conjunct broke) if a constant
+assignment violates the condition.
 
 ---
 

@@ -162,7 +162,7 @@ var balances: Map[str, int]   // ❌ wrong
 
 ## 5. Syntax Rules
 
-Six common gotchas:
+Common gotchas:
 
 ```quint
 // 1. Parameterless pure def — omit parentheses
@@ -173,9 +173,9 @@ pure def name() = ...         // ❌
 var m: str -> int             // ✅
 var m: Map[str, int]          // ❌
 
-// 3. Record update — spread syntax, not .with()
-{...state, field: newValue}   // ✅
-state.with("field", newValue) // ❌
+// 3. Record update — spread syntax is idiomatic
+{...state, field: newValue}   // ✅ preferred
+state.with("field", newValue) // ⚠️ valid, but non-idiomatic (field name is a string literal)
 
 // 4. Variant constructors take one argument — use tuples for multiple values
 TimeoutInput((height, round)) // ✅
@@ -188,6 +188,12 @@ TimeoutInput(height, round)   // ❌
 // 6. oneOf is a method on collections
 collection.oneOf()            // ✅
 oneOf(collection)             // ❌
+
+// 7. Reserved keywords cannot be identifiers or record field names
+type T = { value: int }       // ✅
+type T = { val: int }         // ❌ — `val` is a keyword (also `def`, `to`, `from`, `import`, …)
+def f(sender: int) = ...      // ✅
+def f(to: int) = ...          // ❌ — `to` is the built-in i.to(j) operator
 ```
 
 ---
