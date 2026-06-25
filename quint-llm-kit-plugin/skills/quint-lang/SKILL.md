@@ -1,13 +1,15 @@
 ---
 name: quint-lang
 description: >
-  Expert for Quint, a modern specification language and model checker for concurrent and distributed
-  systems. Covers the full Quint language, CLI toolchain, distributed protocols and
-  concurrent algorithms, and formal verification. Use when: writing/debugging .qnt files,
-  modeling distributed systems, verifying safety properties, analyzing invariant violations, optimizing
-  state space exploration, or translating an existing TLA+ spec into Quint. This is for working in
-  Quint — not for analyzing or running TLA+/TLC itself. Keywords: quint, model checking, formal
-  verification, TLA+-to-Quint translation, distributed systems, concurrent systems, complex behaviours,
+  Quint language and CLI reference — the expert on Quint syntax, operators, types, `basicSpells`,
+  the toolchain (typecheck/run/test/verify), and how to read simulation and counterexample output.
+  Use when writing or debugging the contents of a `.qnt` file, fixing a typecheck/parse error,
+  looking up an operator or idiom, analyzing an invariant violation or counterexample trace, or
+  optimizing state-space exploration. This is for working IN Quint at the language level — not for
+  analyzing or running TLA+/TLC itself. For building a NEW model end-to-end from some source —
+  including translating a TLA+ spec into Quint, or modeling code/requirements/an idea — use the
+  quint-modeling skill, which owns that workflow and consults this reference for syntax. Keywords:
+  quint, syntax, operators, typecheck, model checking, counterexample, basicSpells, CLI,
   specification language.
 ---
 # Quint Language Reference
@@ -40,7 +42,7 @@ import Voting as V           // namespace alias
 | `str` | Strings | `"hello"` |
 | `Set[T]` | Finite set | `Set(1, 2, 3)` |
 | `List[T]` | Ordered sequence | `List(1, 2, 3)` |
-| `Map[K, V]` | Key-value map | `Map("a" -> 1)` |
+| `K -> V` | Key-value map (type is `K -> V`, **not** `Map[K, V]`) | value: `Map("a" -> 1)` |
 | `(T1, T2)` | Tuple | `(1, "x")` |
 | `{ f: T, g: U }` | Record | `{ x: 1, ok: true }` |
 | `T \| U` | Sum (variant) | (use type alias) |
@@ -297,7 +299,7 @@ action becomeFollower(id: int): bool = {
 
 ```quint
 type ClusterState = {
-  nodes:   Map[int, NodeState],
+  nodes:   int -> NodeState,
   leader:  int,
   epoch:   int,
 }

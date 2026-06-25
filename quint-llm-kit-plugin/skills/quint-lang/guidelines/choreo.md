@@ -138,7 +138,7 @@ module protocolTest {
   import protocol.* from "./protocol"
 
   // Happy path: inject a proposal, verify stage transition
-  run testProposalHandling = {
+  run proposalHandlingTest = {
     val proposal = { proposal: "v0", round: 0, src: "p1", valid_round: -1 }
     init
       .then("p1".with_cue(listen_proposal_in_propose, proposal).perform(broadcast_prevote_for_proposal))
@@ -147,7 +147,7 @@ module protocolTest {
   }
 
   // Timeout test
-  run testTimeout = {
+  run timeoutTest = {
     init
       .then("p1".step_with(on_propose_timeout))
       .then("p2".step_with(on_propose_timeout))
@@ -155,7 +155,7 @@ module protocolTest {
   }
 
   // Message injection: manually add messages to the buffer
-  run testMessageInjection = {
+  run messageInjectionTest = {
     val msg1 = { src: "p1", round: 2, value: "v0" }
     init
       .then(
@@ -232,7 +232,8 @@ val canBroadcastPrecommit: bool =
 ### Step 3: Find a counterexample
 
 ```bash
-# Witness violated = path to that action found
+# Here we want the actual PATH, so use the negated-invariant form (not --witnesses):
+# canBroadcastPrecommit is written not(target); a reported violation is a trace reaching it.
 quint run spec.qnt --main myProtocol --invariant canBroadcastPrecommit \
   --max-steps 50 --init init_displayer
 ```

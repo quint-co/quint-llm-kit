@@ -36,13 +36,9 @@ module System {
   // 2. Constants
   pure val INITIAL_USERS: Set[str] = Set("alice", "bob")
 
-  // 3. Pure functions — ALL business logic here
-  pure def operation(state: State, param: Type1): {success: bool, newState: State} =
-    if (precondition(state, param)) {
-      {success: true, newState: {...state, field1: newValue}}
-    } else {
-      {success: false, newState: state}
-    }
+  // 3. Pure functions — ALL business logic here, split into a guard and a next-state function
+  pure def canDoOperation(state: State, param: Type1): bool = precondition(state, param)
+  pure def applyOperation(state: State, param: Type1): State = {...state, field1: newValue}
 
   // 4. State variable — keep cohesive state grouped
   var state: State
@@ -50,18 +46,10 @@ module System {
   // 5. Invariants
   val noNegativeBalances: bool = INITIAL_USERS.forall(u => state.field2.get(u) >= 0)
 
-  // 6. Actions — thin wrappers only
-  action unchanged_all: bool = all {
-    state' = state,
-  }
-
-  action doOperation(param: Type1): bool = {
-    val result = operation(state, param)
-    if (result.success) {
-      state' = result.newState
-    } else {
-      unchanged_all
-    }
+  // 6. Actions — guarded: the guard gates whether the action fires, then assign the next state
+  action doOperation(param: Type1): bool = all {
+    canDoOperation(state, param),
+    state' = applyOperation(state, param),
   }
 
   // 7. Initialization — pre-populate ALL maps
@@ -88,25 +76,24 @@ module System {
 
 ## 2. Pure Functions Pattern
 
-All business logic goes in pure functions. Actions are thin wrappers that call them.
+All business logic goes in pure functions. Split each operation into two pure defs: a **guard**
+(can it happen?) and a **next-state** function (what does it produce, assuming the guard holds).
+The action (Pattern 3) lifts the guard so it is *disabled* when the operation can't happen — no
+success flag, no no-op branch.
 
 ```quint
-// Pure function: takes State, returns {success, newState}
-// Note: the pure function and its action wrapper must have DIFFERENT names —
-// a pure def and an action cannot share a name in the same module (QNT101).
-pure def applyTransfer(state: State, sender: str, recipient: str, amount: int): {success: bool, newState: State} = {
-  val canTransfer = and {
-    state.balances.get(sender) >= amount,
-    amount > 0,
-  }
-  if (canTransfer) {
-    val newBalances = state.balances
-      .setBy(sender,    b => b - amount)
-      .setBy(recipient, b => b + amount)
-    {success: true, newState: {...state, balances: newBalances}}
-  } else {
-    {success: false, newState: state}
-  }
+// Note: a pure def and an action cannot share a name in the same module (QNT101),
+// so the action is `transfer` and the next-state function is `applyTransfer`.
+pure def canTransfer(state: State, sender: str, recipient: str, amount: int): bool = and {
+  state.balances.get(sender) >= amount,
+  amount > 0,
+  sender != recipient,
+}
+pure def applyTransfer(state: State, sender: str, recipient: str, amount: int): State = {
+  val newBalances = state.balances
+    .setBy(sender,    b => b - amount)
+    .setBy(recipient, b => b + amount)
+  {...state, balances: newBalances}
 }
 ```
 
@@ -116,22 +103,23 @@ pure def applyTransfer(state: State, sender: str, recipient: str, amount: int): 
 
 ---
 
-## 3. Thin Actions Pattern
+## 3. Guarded Actions Pattern
 
-Actions do exactly three things: call the pure function, check success, update the grouped state variable.
+An action puts the guard and the next-state assignment together in one `all { ... }`: the guard
+gates whether the action fires, then it assigns the next state. When the guard is false the action
+is simply **disabled** (it does not fire and changes nothing) — no success flag, no `unchanged_all`
+fallback. A disabled action is the faithful model of "this can't happen now," and it's what lets the
+simulator surface dead ends; a blanket no-op fallback fabricates a transition the system doesn't have.
 
 ```quint
-action transfer(sender: str, recipient: str, amount: int): bool = {
-  val result = applyTransfer(state, sender, recipient, amount)
-  if (result.success) {
-    state' = result.newState
-  } else {
-    unchanged_all
-  }
+action transfer(sender: str, recipient: str, amount: int): bool = all {
+  canTransfer(state, sender, recipient, amount),
+  state' = applyTransfer(state, sender, recipient, amount),
 }
 ```
 
-The action `transfer` wraps the pure `applyTransfer` — distinct names, since a `pure def` and an `action` cannot share a name. No conditional logic in actions beyond the `result.success` check.
+The action `transfer` uses the pure `canTransfer`/`applyTransfer` — distinct names, since a
+`pure def` and an `action` cannot share a name. No conditional logic in the action beyond the guard.
 
 For cohesive local state, avoid decomposing one concept into many top-level vars (`var id`, `var phase`, `var round`, ...). Prefer a `type LocalState` record and one `var localState: LocalState`.
 
@@ -215,37 +203,50 @@ These operations have undefined behavior if preconditions aren't met:
 
 ## 7. Action Witnesses Pattern
 
-A witness is an invariant that **should be violated** — violation means the target state is reachable.
+A witness names a target state, written **positively**, and is checked with `quint run --witnesses`,
+which reports how many sampled traces reached it.
 
 ```quint
-// Witness: can doOperation succeed?
-// VIOLATED = ✅ (action is reachable)
-// SATISFIED = ❌ (action is unreachable — spec is over-constrained)
-val canDoOperationSuccessfully: bool =
-  not(lastActionSuccess and field != initialValue)
+// state-evidence: a withdrawal pushed someone's balance below the initial value
+val withdrawalHappened = users.exists(u => balances.get(u) < INITIAL_BALANCE)
 
-// Run with:
-// quint run --invariant=canDoOperationSuccessfully spec.qnt
-```
-
-**Pattern variants:**
-
-```quint
-// Pattern 1: success flag + state evidence
-val canDelegateSuccessfully = not(lastActionSuccess and delegations.size() > 0)
-
-// Pattern 2: state change evidence only
-val canWithdrawSuccessfully = not(users.exists(u => balances.get(u) > INITIAL_BALANCE))
-
-// Pattern 3: complex multi-condition
-val canCompleteFullCycle = not(and {
+// multi-condition target
+val fullCycleReached = and {
   delegations.size() == 0,
   users.forall(u => rewards.get(u) == 0),
   users.exists(u => balances.get(u) > INITIAL_BALANCE),
-})
+}
+
+// quint run --witnesses withdrawalHappened fullCycleReached spec.qnt
+//   → withdrawalHappened was witnessed in N trace(s) … (P%)
+// N > 0 = reachable; 0 = dead action (over-constrained precondition or bug)
 ```
 
-Add one witness per major action. If a witness is always satisfied, the action has an over-constrained precondition or a bug.
+Add one witness per major action; a witness reached in 0 traces means the action is dead.
+
+**Make the target a state only an action can produce.** A witness is satisfied by *any* state that
+matches, including the initial state — so a predicate that already holds at `init` (e.g. a balance
+that starts unequal) is "reached" in 100% of traces at step 0, telling you nothing about the action.
+Phrase the target so only the action you care about can make it true (e.g. a balance *below* the
+initial value requires a withdraw to have fired), and a non-zero count then genuinely witnesses the
+action.
+
+**Distinguishing *which* action fired (rare).** When several actions can produce the same target
+state and you must confirm a *specific* one ran, add a dedicated per-action boolean `var` set in that
+action's body and read it in the witness:
+
+```quint
+var lastWasWithdraw: bool                 // declared; set in EVERY action (false elsewhere)
+// ... withdraw sets lastWasWithdraw' = true; other actions set it false ...
+val withdrawFired = lastWasWithdraw and withdrawalHappened
+```
+
+This costs an assignment in every action (Quint requires every `var` set in every action), so reach
+for it only when a plain state-evidence target genuinely can't distinguish the case — usually it can.
+
+When you want an actual *trace* that reaches the state rather than a count, write the negation as an
+invariant (`val w = not(target)`) and run `--invariant w` — the reported "violation" is a reaching
+execution.
 
 ---
 
@@ -336,7 +337,7 @@ This partition maps directly to Quint: state machine → `var` + actions, functi
 
 ## 12. Extract the System Model
 
-Before writing `var` declarations, identify the protocol's assumptions explicitly. These become `const` and `assume` in Quint — they're easy to miss when implicit in prose or TLA+.
+Before writing `var` declarations, identify the protocol's assumptions explicitly — they're easy to miss when implicit in prose or TLA+. Each becomes a `const` declaration; to actually *check* a condition on those consts, write a `run` test (an `assume` only documents the premise and is not enforced — see the `## Assume` section).
 
 | Concern | Questions to answer |
 | --- | --- |
@@ -349,7 +350,9 @@ Before writing `var` declarations, identify the protocol's assumptions explicitl
 pure val N: int = 4          // total processes
 pure val F: int = 1          // max faulty
 
-assume quorumMajority = 2 * F < N
+// Check the assumption — a `run` test actually evaluates it. (`assume` would only document
+// it; it is not enforced. Name ends in `Test` so `quint test` picks it up — see tests.md.)
+run quorumMajorityTest = { all { 2 * F < N } }
 ```
 
 If an assumption is wrong, every invariant built on top of it is wrong. Surface them before building anything else.

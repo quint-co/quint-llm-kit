@@ -115,7 +115,7 @@ run decisionIsReachable =
     .expect(decided == true)
 ```
 
-If `quint run` with `--invariant=decisionIsReachable` shows a violation, the state is reachable (which is what you want). See `guidelines/witnesses.md` for the full witnesses concept.
+This `run`-style witness documents a *known* reachable path and is checked with `quint test` (it passes when the path completes). For exploratory reachability, write the target as a predicate and use `quint run --witnesses <pred>` instead — a non-zero trace count means reachable. See `guidelines/simulations.md` for the full witnesses treatment.
 
 ---
 

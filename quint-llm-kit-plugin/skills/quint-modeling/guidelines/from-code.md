@@ -10,20 +10,17 @@ spine (Steps 1–7) in `../SKILL.md`.**
 - **Phase 0: Research (compact)** — catalog the codebase before deep reading
 - **Phase 1: Understand the code** — Steps 1.1–1.4 (domain, operations, state vars, system model)
 - **The source-construct → Quint mapping** — the construct translation table
+- **Set scope and abstraction level** — modules in/out, atomic granularity, details to hide (confirm with the user)
 - **After intake** — hand off to the shared spine
 - **Handoff** — spine Step 7 plus a source-file correspondence map
 
 ## Why a spec from code
 
-**The spec is a persistent grounding artifact, not throwaway output.** It is the source of
-truth for what the system *is supposed to do*, used to verify every future change against.
-
-- **Specs are higher leverage than code** — a 50–200 line model captures what 1000 lines of
-  prose cannot, and human review at the spec stage is the highest-leverage review point.
-- **The spec verifies code; it does not generate it.** Code stays primary. The spec is a
-  machine-checked contract, not a code generator.
-- **The spec grounds future refactors.** When the code changes, the spec is what you re-verify
-  against to know the change preserved the intended behavior.
+**The spec is a persistent grounding artifact, not throwaway output** — the machine-checked source
+of truth for what the system *is supposed to do*, used to verify every future change against. Code
+stays primary: the spec *verifies* code, it does not generate it. A 50–200 line model captures what
+1000 lines of code can't, and reviewing at the spec stage — then re-verifying it whenever the code
+changes — is the highest-leverage check you get.
 
 ## Phase 0: Research (compact)
 
@@ -103,12 +100,70 @@ type Message =
   | VoteResponse({ term: int, voterId: int, granted: bool })
 ```
 
+## Set scope and abstraction level — propose, then confirm
+
+You now understand what the code does. **Before** handing off to the spine, pin down three
+decisions that the code itself cannot answer — they depend on *what you intend to verify*, and
+getting them wrong is expensive to unwind once types and logic exist. Code is the flow where this
+matters most: a codebase offers far more detail than a spec should reproduce.
+
+First, **infer** as much as you can from what the user already told you — the request usually
+states (or strongly implies) the target property, which modules matter, and how faithful the
+model must be. Don't re-ask what's already answered. Draft the three decisions from that, then
+**present them as a proposal and ask the user to confirm the parts you inferred** — especially
+anything you had to guess. This is the same propose-then-approve gate as the spine's type sketch,
+just one step earlier.
+
+**1. Scope — which modules/components.** From the Phase 0 catalog, state which modules/files are
+*in* the spec and which are out, and what an out-of-scope component is replaced by (an abstract
+map, an assumption). "Model the consensus core in `raft.rs`/`log.rs`; treat storage as an abstract
+`Key -> Value` map; exclude the gRPC transport." Model what the target invariants depend on; leave
+the rest out.
+
+**2. Granularity — how many implementation steps become one atomic transition.** Real code does
+one logical operation in many small steps (lock → read → check → mutate → unlock → ack). In the
+model, decide the **atomic grain**: which sequences collapse into a single action.
+- **Fuse into one atomic action** when the intermediate states are not observable to other actors,
+  or cannot interleave in a way that affects an invariant you care about.
+- **Keep the steps separate** when the concurrent interleaving *between* sub-steps is exactly what
+  you are verifying — a check-then-act race (TOCTOU), a partial-write window, a torn read.
+
+  This is the choice that most determines whether the spec can *find* a concurrency bug versus
+  silently *assume it away*, so make it deliberately and state it. (Atomicity is implicit in
+  Quint — an action either fires whole or not at all — so fusing is the default; splitting is the
+  decision that costs you nothing in syntax but buys interleaving coverage.) For **distributed
+  protocols specifically, lean toward splitting at message boundaries** — a process's local update
+  and another process observing its message are not simultaneous, so fusing them assumes away the
+  interleavings where most real bugs live. (This is also what Choreo structures for you.)
+
+**3. Implementation details — which mechanism to hide.** Source code is full of plumbing a spec
+should *assume away*, not reproduce. For each concern the code surfaces, state model-it vs.
+hide-it and why:
+
+| Detail in the code | Default in the spec | Model it only when… |
+|---|---|---|
+| Locks / mutexes / atomics | hide — steps are atomic (see decision 2) | lock-acquisition order is the property |
+| Serialization / wire format | hide — pass structured values | a (de)serialization bug is the target |
+| Retry / backoff / timeout plumbing | hide — model the outcome (success/failure) | retry semantics are the property |
+| **Bounded channels / queues** | hide — unbounded `Set[Msg]` message soup, delivery is an action firing | back-pressure / blocking-on-full / capacity is the property |
+| Network transport (sockets, framing) | hide — message soup; no delivery order | loss or ordering is what you verify |
+| Error-propagation boilerplate | hide — a failed op is a guarded action that doesn't fire | error handling itself is the property |
+| Concrete data structures (ring buffers, trees) | hide — `List` / `Set` / `Map` | the structure's own invariant is the target |
+| Identifiers (node/request/txn IDs) | abstract — a small symbolic set (`NodeId = int`, opaque) | identity arithmetic/ordering is the property |
+| Unbounded counters / sequence numbers | abstract — a small capped int or round counter | the bound itself is the property |
+
+The governing rule is the spine's "what, not how": if a detail doesn't affect an invariant you
+care about, it doesn't belong in the spec. These choices become the `const` declarations and
+system-model assumptions the spine's Step 1 will encode — you are deciding them here as one
+coherent set, with the user's sign-off, rather than discovering them ad hoc while writing.
+
 ## After intake
 
-Hand the understanding (entities, the operations table, the state variables, the filled-in
-assumptions checklist) to the **shared spine, Steps 1–7** in `../SKILL.md`. The spine shapes
-the state, writes the pure functions, wires thin actions, proposes witnesses-then-invariants,
-composes `step`, and simulates. Do not duplicate that work here.
+With scope, granularity, and abstraction level agreed, hand the understanding (entities, the
+operations table, the state variables, the filled-in assumptions checklist) to the **shared spine,
+Steps 1–7** in `../SKILL.md`. The spine shapes the state, writes the pure functions, wires thin
+actions, proposes witnesses-then-invariants, composes `step`, and simulates. Do not duplicate that
+work here.
 
 ## Handoff (spine Step 7, with a code-specific addition)
 

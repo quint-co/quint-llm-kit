@@ -27,3 +27,6 @@ coverage/
 
 # OS artifacts
 .DS_Store
+
+# Quint / Apalache scratch output (created by `quint verify`)
+_apalache-out/

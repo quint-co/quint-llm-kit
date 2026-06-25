@@ -39,7 +39,7 @@ run quorumAssumptionTest = {
 }
 ```
 
-Run it via `quint test` with `main_module=<InstanceModule>`. The test passes when all conditions hold; it fails (reporting which step failed) otherwise.
+Run it via `quint test <file> --main <InstanceModule>`. The test passes when all conditions hold; it fails (reporting which step failed) otherwise.
 
 ### Abstract TLA+ sets → const + parametric types
 
@@ -98,6 +98,12 @@ These are the places where idiomatic Quint diverges from the TLA+ structure.
   }
   ```
 
+  Returning-old-state-on-failure is acceptable as a **transient step** during translation (it lets
+  you get the spec running before every guard is lifted out), but it is not the end state: a
+  blanket no-op fabricates a transition the protocol doesn't have. Before handoff, lift the guards
+  out so the action is properly disabled when its precondition fails — see the spine's Step 6
+  ("Model transitions faithfully: guard actions, don't fake no-ops") for the reasoning.
+
 - **Message soup → consider Choreo.** A TLA+ message soup (a `msgs` variable, a `Send(m)` helper, or any `\cup {m}` pattern on a message set) is a strong signal the protocol is genuinely message-passing — **raise Choreo in design before writing any code, unless the protocol is single-actor or simple enough that plain Quint is clearer** (see the spine's "When to use Choreo"). When it fits, use Choreo (`../quint-lang/guidelines/choreo.md`) and ask the user to confirm the node/role decomposition (which processes send/receive which message types, whether to introduce an explicit leader). The TLA+ soup is monotone (messages are never deleted) — decide whether Choreo inboxes should consume messages or leave them in place.
 
 - **Choreo `listen_*` / `send_*` naming.** `listen_X` is named after what it watches for (the triggering condition or incoming message type); `send_X` is named after the message type it produces (= the TLA+ operator name). E.g., TLA+ `Phase2b(a,b,v)` is triggered by a Phase2a message → `listen_phase2a` / `send_phase2b`. For an initial step with no incoming message, use a descriptive name like `listen_start` or `listen_phase1b_quorum`. The `main_listener` then reads as a direct transliteration of the TLA+ `Next` definition.
@@ -122,9 +128,22 @@ export paxos                           // re-export so analysis modules can call
 
 The analysis module then calls `paxos::listen_p2a_value`, `paxos::upon_classic_decide`, etc. without duplication.
 
-**Constraint — higher-order const bindings.** A `paxos::f` function can be passed to `choreo::cue` ONLY if its body does **not** reference module-level `const`s. If it does, the Quint runtime loses the const binding when `f` is used as a higher-order argument. Fix: rewrite the body to use only the type structure instead. Example: `Values.contains(r.value)` → `r.value != Any and r.value != NoVal` (equivalent when `Values` only contains `Val(v)` elements, which the assume test guarantees).
+**Constraint — higher-order const bindings (verify locally).** In some cross-module setups (observed
+passing `paxos::f` to `choreo::cue`), a function whose body references module-level `const`s loses
+the const binding when used as a higher-order argument across the boundary, failing at runtime with
+"Uninitialized const". This is **not** a reliable general rule — a plain higher-order const closure
+across a normal `import` runs fine on current Quint — so treat it as a setup-specific gotcha to check
+against your own version, not a law. If you do hit it, the fix is to rewrite the body to use only the
+type structure: `Values.contains(r.value)` → `r.value != Any and r.value != NoVal` (equivalent when
+`Values` only contains `Val(v)` elements, which the assume test guarantees).
 
-**Constraint — cross-module `val` invariants.** Referencing `paxos::TypeOKInvariant` (a `val`) from the extending module also fails at runtime with "Uninitialized const", even without higher-order calls. The fix differs from the higher-order case: extract the invariant body into a `pure def` that takes the consts as explicit parameters, then call it from both the base `val` and the extending module's invariant.
+**Constraint — cross-module `val` invariants.** The governing insight: a `pure def`'s arguments are
+evaluated at the **call site**, so consts passed in refer to the *caller's* (bound) consts; a `val`
+is evaluated in **its own defining module's** const environment, which is not propagated across an
+import boundary. So referencing `paxos::TypeOKInvariant` (a `val`) from the extending module fails at
+runtime with "Uninitialized const". Fix: extract the invariant body into a `pure def` that takes the
+consts as explicit parameters, then call it from both the base `val` and the extending module's
+invariant.
 
 ```quint
 // Paxos.qnt — base module
@@ -158,7 +177,8 @@ val FastTypeOK: bool =
   and (Values.contains(coordState.cValue) or coordState.cValue == NoVal)
 ```
 
-The key insight: `pure def` arguments are evaluated at the call site, so `Values` and `Ballots` refer to the caller's (FastPaxos's) consts, which are properly bound. A `val` is evaluated in its defining module's const environment, which is not propagated across the import boundary.
+(In the example above, `checkPaxosTypeOK` works from FastPaxos because `Values`/`Ballots` are
+evaluated at the call site against FastPaxos's bound consts.)
 
 When the operator genuinely differs between base and extending module (e.g. `ClassicDecide` iterates `ClassicBallots` in FastPaxos but `Ballots` in Paxos), define the function locally in the extending module. This is semantically correct, not a workaround.
 
@@ -218,7 +238,7 @@ Scan the TLA+ spec for any use of `CHOOSE` (e.g. `CHOOSE x \in S : P(x)`). Quint
 
 ### Step 1.4: System-model assumptions
 
-Fill in the spine's system-model assumptions checklist (Step 1 of `quint-modeling/SKILL.md`) from the TLA+ spec — communication, failures, time, participants. These become the `const` declarations and the `run` test that checks the translated `ASSUME` (see the Maintain rules above) — not Quint's `assume` keyword.
+Fill in the spine's system-model assumptions checklist (Step 1 of `quint-modeling/SKILL.md`) from the TLA+ spec — communication, failures, time, participants. These become the `const` declarations and the `run` test that checks the translated `ASSUME` (Maintain rules above).
 
 ---
 
@@ -269,7 +289,7 @@ This is the spine's Step 7 handoff, in TLA+-translation form. It documents the t
 | `msgs` / message soup → plain `Set[Message]` | Consider Choreo instead — a soup is a strong Choreo signal; raise it in design unless the protocol is single-actor/simple (see the spine) |
 | TLA+ `EXTENDS` → duplicating all functions | Use `import M(...) as m` + `export m`. The extending module re-declares shared `const`s and passes them through. Functions with no `const` refs in their body are safely reusable as `m::f` |
 | `type T[v] = ...` in same module as `const X: Set[T]`, instantiated with `X = Set(Constructor(v))` | Quint detects a self-referential cycle: `Constructor` is defined by `T`, defined in the module being instantiated. Fix: extract `type T[v]` to a separate shared module imported by both base and extending modules |
-| `m::f` fails at runtime with "Uninitialized const" when passed as a higher-order argument | `f` closes over a `const` from module `M`; Quint does not propagate const bindings through higher-order calls across module boundaries. Fix: rewrite `f` to avoid const references — use the type structure (e.g. `x != SentinelA and x != SentinelB` rather than `Values.contains(x)`) |
+| `m::f` fails at runtime with "Uninitialized const" when passed as a higher-order argument *(setup-specific — verify; a plain cross-module higher-order const closure runs fine on current Quint)* | If you hit it: rewrite `f` to avoid const references — use the type structure (e.g. `x != SentinelA and x != SentinelB` rather than `Values.contains(x)`) |
 | `paxos::TypeOKInvariant` (a `val`) fails at runtime with "Uninitialized const" | Quint does not propagate `const` bindings when a `val` is accessed across module boundaries, even without higher-order calls. Fix: extract the invariant body into a `pure def` taking the consts as explicit parameters, then call it from both the base `val` and the extending module (see EXTENDS section) |
 | TLA+ `CHOOSE` | No direct Quint equivalent. Flag each occurrence to the user (Step 1.1c) and get an approved approach — nondet, deterministic helper, or const — before translating |
 | Parenthetical insertions with em-dashes in README or Quint comments | In *generated output* (the spec, its comments, the README) — not this guideline's own prose — do not write sentences that insert a clause between em-dashes ("X — which does Y — Z"). Use separate sentences or plain parentheses instead |
