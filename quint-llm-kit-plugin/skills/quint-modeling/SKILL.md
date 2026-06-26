@@ -72,9 +72,35 @@ Two principles hold throughout:
   `module spec_3 { import spec(C = Set(1,2,3)).* }` — and run *that* module. (`assume` documents a
   premise; it does not supply a value — see Step 1 and quint-lang's `guidelines/simulations.md`.)
   After each addition, actually run it — if you can't `quint run` the module, it isn't done.
+  **Use `quint run` only — never `quint verify`.** This holds for the whole skill: building,
+  iterating, reviewing, sanity-checking invariants — every step uses sampled `quint run`, not once
+  `quint verify`, not even as a final pass. `verify` is exhaustive bounded model checking
+  (Apalache): far slower (minutes to hours) and not part of the modeling workflow. It is a
+  *model-checking* tool, documented in quint-lang (`guidelines/cli.md`, `guidelines/simulations.md`)
+  — reach for it **only when the user explicitly asks to model-check** the spec, never on your own.
 - **What, not how.** Model observable state transitions and their effects. Abstract away
   implementation detail (serialization, memory management, retry plumbing). If a detail
   doesn't affect an invariant you care about, it doesn't belong in the spec.
+
+#### Reference examples
+
+Two complete, runnable specs are bundled in `examples/`, one for each of the **two ways
+components coordinate** — by **passing messages** or by **sharing state**. Almost any system maps
+onto one of them; pick by *that* question, not by domain label, and read the closer match as a
+worked instance of the spine patterns (Step 2 state-shaping, Step 4 guarded actions, Step 5
+witnesses + invariants) — to see how the pieces compose into a whole spec. (They are canonical
+shapes to learn from, not the only valid ones.)
+
+| Example | Coordinates by… | Read it when modelling… |
+|---|---|---|
+| `examples/tendermint/` | **message passing** (`choreo::` broadcast/send; real BFT consensus) | **any distributed protocol where parties exchange messages** — consensus, BFT, replication, atomic commit, leader election, reliable broadcast/gossip, request/response, a mempool. This is the **default** reference for distributed systems. Shows: grouped `Id -> LocalState` (Step 2), guarded transitions (Step 4), `choreo::cue` listen/act split, safety invariants (`agreement`/`validity`) + an accountability/liveness angle + a counterexample demo (Step 5), `const`-instantiation, and test separation. Its banner has a "quick read" path so you needn't read all ~760 lines. See also Step 2's "When to use Choreo" and `../quint-lang/guidelines/choreo.md`. |
+| `examples/ewd426.qnt` | **shared state** (no messages) | systems whose parts coordinate through **common state** rather than messages — mutexes/locks, token rings, shared registers, self-stabilization, anything where a process reads its neighbours/the environment directly. Shows: grouped-map state (Step 2), guarded `step` (Step 4), `const`-instantiation, and `temporal` **liveness** properties (Step 5). |
+
+If a system has both (e.g. message-passing nodes that also touch a shared ledger), start from
+**tendermint** (the message-passing structure dominates) and add shared state as its own `var`,
+per Step 2. Plain message *soup* (`Set[Msg]`) without the Choreo framework isn't a separate file —
+Choreo's broadcast is soup underneath, so `tendermint/` is also the reference for that shape (read
+the state decls + a guarded transition; the `choreo::` wrapper is the only added layer).
 
 ### Step 1 — Separate concerns
 
@@ -95,14 +121,32 @@ source (interview, requirements doc, code, or TLA+); the checklist is the same r
 
 | Concern | Questions to answer |
 |---|---|
-| **Communication** | Reliable or lossy? Ordered or unordered? Broadcast or point-to-point? |
+| **Communication** | **How do the actors communicate — messages or shared state? If messages: reliable or lossy? ordered or unordered? broadcast or point-to-point?** (The other shaping question — answer it right after actors; it picks the message medium in Step 2 and, with the actor count, settles the Choreo decision.) |
 | **Failures** | Crash-stop? Crash-recovery? Byzantine? What fraction `f` of `n`? |
 | **Time** | Synchronous? Asynchronous? Partial synchrony? Are timeouts modelled? |
-| **Participants** | Fixed membership or dynamic? How many processes? |
+| **Actors / Participants** | **Who are the actors and roles, and what local state does each hold?** (This is the most concrete intake question — answer it first; it feeds Step 2's `Id -> LocalState` shaping directly.) Fixed membership or dynamic? How many processes? |
 
 If an assumption is wrong, every property built on it is wrong — surface them before building.
 
 ### Step 2 — Shape the state
+
+**Start from the two questions you answered in Step 1 — *who the actors are* and *how they
+communicate*. Together they drive every structural decision this step makes.** They are not just
+background; they pick the shape, the message medium, and the framework:
+
+- **How many actors → the state shape.** One actor → a single `var s: Record`. N actors of the
+  same kind → one `Id -> LocalState` map (the record describes *one* actor; see "Scaling to N"
+  below). Distinct roles → either a field on `LocalState` (e.g. `role: Coordinator | Participant`)
+  or separate maps. Get the actor count/roles right and the shape falls out.
+- **How actors communicate → the message medium.** Messages → a separate `var` for the medium,
+  *not* crammed into `LocalState`: unordered `Set[Message]` soup (the default), or `... ->
+  List[Message]` ordered per-pair queues only when delivery order is load-bearing. No messages,
+  coordination through common state → shared memory (no medium var; see `examples/ewd426.qnt`).
+  This is the "Communication shapes" choice detailed just below.
+- **Actors + communication → Choreo or not.** Multiple actors coordinating by **exchanging
+  messages** → default to Choreo (see "Default to Choreo" below). A single actor, or actors
+  coordinating through **shared state** → plain Quint. So answer "who, how many, and how do they
+  talk?" first, and all three decisions below are mostly settled before you write a type.
 
 **Group cohesive state into a record** and let the functional layer operate on that record — this is
 the recommended shape, because most of the time the variables that describe one entity *are*
@@ -156,28 +200,48 @@ The guideline, stated once: **group cohesive state into a record (one var for on
 registry — as their own separate vars**, never crammed into the per-instance record. Reach for flat
 per-field vars only when the fields don't cohere into a unit.
 
-#### When to use Choreo instead
+**Communication shapes** (decide alongside the state shape):
+- **Message soup** — `var network: Set[Message]`, processes receive any in-flight message. The
+  default for asynchronous protocols; use it unless ordering genuinely matters.
+- **Shared memory** — no message medium; processes read/write common state directly. See the
+  bundled **`examples/ewd426.qnt`** (a token ring where each node reads its neighbours).
+- **Ordered per-pair queues** — `... -> List[Message]` with head/tail ops. Use **only when
+  delivery order is semantically required** (e.g. logical-clock causality); it is more expensive
+  to model-check than soup. The corpus spec `LamportMutex` is the canonical example — prefer
+  soup unless you can name why ordering is load-bearing.
 
-For **event-driven distributed protocols with N processes** (consensus, BFT, multi-phase
-commit), the Choreo framework is often a better structure than the plain
-`NodeId -> LocalState` + message-soup layout above. It gives you pre-built abstractions for
-message passing, per-process listen/react handlers, and a clean split between local-state
-updates and network effects. This is a structural fork — decide it **here**, before writing
-logic, and confirm the node/role decomposition with the user.
+#### Default to Choreo for distributed protocols
 
-**Reach for Choreo when:**
-- Each process reacts to incoming messages with distinct handlers per message type
-- You want local state manipulation cleanly separated from network effects
-- The protocol has a clear listen → react shape (a message soup, a `Send`/broadcast pattern)
+For **any distributed, message-passing protocol with N processes** (consensus, BFT, replication,
+multi-phase commit, broadcast/gossip, leader election), **default to the Choreo framework** — and
+make a deliberate, justified decision if you are *not* going to. This isn't a stylistic toss-up:
+Choreo's listen → react structure and its clean split between local-state updates and network
+effects (the `choreo::cue` pattern) actively push you toward a better-organized, more reviewable
+spec than a hand-rolled `NodeId -> LocalState` + message-soup `step`. The default expectation is
+Choreo; plain Quint for a message-passing protocol is the thing that needs a reason.
 
-**Stick with plain Quint when:**
-- The protocol is simple or has a single actor
-- You are still exploring the design
-- There is no clear listen/react structure
+**The one legitimate reason to decline:** on a *small* protocol, Choreo's scaffolding (the type
+boilerplate — `LocalContext`/`Transition`/effects — and framework wiring) can add more ceremony
+than the spec's structure is worth, making it materially more verbose for little gain. That's a
+real judgment call — but it is the **only** routine exception, and even then lean toward Choreo.
+Two structural cases also fall outside Choreo: a **single actor** (no inter-process messaging to
+choreograph) and **shared-memory coordination** (no message medium at all → plain Quint, see
+`examples/ewd426.qnt`).
+
+Not a reason: *"still exploring the design."* You can explore *in* Choreo, and switching frameworks
+later is expensive — so don't defer the decision on those grounds.
+
+**This is a structural fork — decide it before writing logic.** If you intend to go plain Quint for
+a protocol that would otherwise be a Choreo candidate, **say so to the user, name the
+verbosity/benefit tradeoff, and get agreement** (fold this into the type-sketch sign-off below).
 
 When Choreo fits, the per-process state still follows the grouping rule above — Choreo just
 supplies the messaging and handler scaffolding around it. See
-`../quint-lang/guidelines/choreo.md` for the framework's API and patterns.
+`../quint-lang/guidelines/choreo.md` for the framework's API and patterns, and
+**`examples/tendermint/`** for a complete, runnable Choreo spec — real BFT consensus
+demonstrating the `choreo::cue` listen/act split, `agreement`/`validity`/`accountability`
+invariants, and `with_cue`-based tests in a separate `tendermintTest.qnt` (run via
+`--main=valid`).
 
 Decide grouping (and Choreo-or-not) with the user and **get explicit approval on the type
 sketch before writing any logic** (Step 3). Typecheck the types + `var` declarations first;
@@ -306,18 +370,20 @@ action step: bool = {
 
 - Check **witnesses** with `quint run --witnesses` — expect a non-zero trace count (reachable);
   0% means a dead action.
-- Check **invariants** with `quint run` (sampled) and `quint verify` (bounded-exhaustive) —
-  expect no violation. Read counterexample traces step by step when one appears.
+- Check **invariants** with `quint run` (sampled) — expect no violation; read counterexample
+  traces step by step when one appears. Use `quint run` for this, not `quint verify` (see the
+  "Executable from the first line" principle — `verify` is only for when the user explicitly asks
+  to model-check).
 
 #### A guarded model can reach a state where nothing is enabled
 
-Because actions are guarded (Step 4), the model can reach a state with **no enabled action**. Which
-tool tells you, and what it means, both matter:
-
-- **`quint verify`** detects it and reports it outright: `Found a deadlock. The outcome is:
-  Deadlock`. Use it when you want to know whether the model can get stuck.
-- **`quint run` does not detect deadlocks** — it stops early and prints `[ok] No violation found`
-  with a trace shorter than `--max-steps`. A short trace is the only hint; the run reads as success.
+Because actions are guarded (Step 4), the model can reach a state with **no enabled action**. The
+trap during a build: **`quint run` does not detect deadlocks** — it stops early and prints `[ok] No
+violation found` with a trace shorter than `--max-steps`. A short trace is the only hint, and the
+run reads as success, so watch trace length when you expect the protocol to keep going. (For the
+record, `quint verify` reports a deadlock outright — `Found a deadlock` — but that's a
+model-checking step, only in play if the user explicitly asks for it; don't switch to `verify` just
+to chase a suspected deadlock mid-build — inspect the short trace with `quint run` instead.)
 
 Whether reaching such a state is correct depends on the system: one that should keep serving must
 never get stuck, while one that genuinely finishes (everyone committed, nothing left to do) is

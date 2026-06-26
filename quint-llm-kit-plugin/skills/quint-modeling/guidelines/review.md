@@ -56,9 +56,10 @@ raise with the user.
 
 > R1/R2 are bounded checks driven from `init`, not a proof. A *violation* is conclusive (the spec
 > does break the property); the *absence* of one across what you ran is **not** — report it as "no
-> counterexample observed in the runs executed," never "the invariant holds." For an exhaustive
-> bounded check use `quint verify`. See quint-lang's `guidelines/simulations.md` for the full
-> result-language discipline.
+> counterexample observed in the runs executed," never "the invariant holds." Stay with `quint
+> run` for the review — do **not** reach for `quint verify`; exhaustive model checking is a separate
+> activity, only when the user explicitly asks for it (see quint-lang's `guidelines/simulations.md`
+> and `guidelines/cli.md`). See `guidelines/simulations.md` for the full result-language discipline.
 
 ## Report format
 
@@ -90,7 +91,8 @@ Runtime
 ── Suggested next steps ───────────────────────────────────
   1. Fix the fails above
   2. Stress-test flagged scenarios with `quint run` / the REPL
-  3. `quint run --invariant <name>` to sample; `quint verify` for bounded-exhaustive
+  3. `quint run --invariant <name>` to sample (offer `quint verify` only if the user wants
+     exhaustive model checking — it is not part of the review itself)
 ```
 
 ## After the report

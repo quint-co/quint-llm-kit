@@ -269,6 +269,21 @@ quint run spec.qnt --invariant myInv --seed <seed> --verbosity 3 --max-steps 50
 `--verbosity 3` is the one to reach for when diagnosing — it adds `nondet` picks and state changes on
 top of the default example trace. The full 0–5 range is in `cli.md`'s verbosity guide.
 
+### `--mbt` — see *which* action fired at each step
+
+`--verbosity 3` shows state changes and picks, but not always *which named action* produced each
+step. Add `--mbt` to surface that: each state in the trace carries `mbt::actionTaken` (the action
+name) and `mbt::nondetPicks` (the values chosen inside it).
+
+```bash
+quint run spec.qnt --invariant myInv --seed <seed> --verbosity 3 --mbt --max-steps 50
+```
+
+Reach for it when a trace reaches the critical state but it's unclear which action drove the
+transition — e.g. several actions could produce the same state, or a witness fires unexpectedly and
+you need to name the culprit. (For *confirming* a specific action fired as a property rather than
+reading it off a trace, the per-action flag `var` in `patterns.md` §7 is the structural alternative.)
+
 ### Analysis steps
 
 1. Scan for repeated actions — signal of a stuck loop

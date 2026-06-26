@@ -114,11 +114,14 @@ model must be. Don't re-ask what's already answered. Draft the three decisions f
 anything you had to guess. This is the same propose-then-approve gate as the spine's type sketch,
 just one step earlier.
 
-**1. Scope — which modules/components.** From the Phase 0 catalog, state which modules/files are
+**1. Scope — which modules/components.** From the Phase 0 catalog, decide which modules/files are
 *in* the spec and which are out, and what an out-of-scope component is replaced by (an abstract
 map, an assumption). "Model the consensus core in `raft.rs`/`log.rs`; treat storage as an abstract
 `Key -> Value` map; exclude the gRPC transport." Model what the target invariants depend on; leave
-the rest out.
+the rest out. **Only stop to confirm scope with the user when the boundary is genuinely
+ambiguous** — if the request already makes it clear (names the component, the property, the entry
+point), just state your inferred scope in one line and move on. Don't turn an obvious boundary into
+a question.
 
 **2. Granularity — how many implementation steps become one atomic transition.** Real code does
 one logical operation in many small steps (lock → read → check → mutate → unlock → ack). In the
@@ -147,7 +150,7 @@ hide-it and why:
 | Retry / backoff / timeout plumbing | hide — model the outcome (success/failure) | retry semantics are the property |
 | **Bounded channels / queues** | hide — unbounded `Set[Msg]` message soup, delivery is an action firing | back-pressure / blocking-on-full / capacity is the property |
 | Network transport (sockets, framing) | hide — message soup; no delivery order | loss or ordering is what you verify |
-| Error-propagation boilerplate | hide — a failed op is a guarded action that doesn't fire | error handling itself is the property |
+| Error-propagation boilerplate | hide — a failed op is a guarded action that doesn't fire; *but if the error value itself is observable state you assert on (revert reason, error code), return it from a `pure def` as `{error, state}` instead* | error handling itself is the property |
 | Concrete data structures (ring buffers, trees) | hide — `List` / `Set` / `Map` | the structure's own invariant is the target |
 | Identifiers (node/request/txn IDs) | abstract — a small symbolic set (`NodeId = int`, opaque) | identity arithmetic/ordering is the property |
 | Unbounded counters / sequence numbers | abstract — a small capped int or round counter | the bound itself is the property |
@@ -172,8 +175,8 @@ and add a **source-file correspondence map** so each module is traceable back to
 grounds. When those files change, update the spec first and re-verify before touching the code.
 
 ```
-quint-specs/Raft.qnt       ↔   src/consensus/raft.rs, src/consensus/log.rs
-quint-specs/Membership.qnt ↔   src/cluster/membership.go
+Raft.qnt       ↔   src/consensus/raft.rs, src/consensus/log.rs
+Membership.qnt ↔   src/cluster/membership.go
 ```
 
 To implement changes against this spec, use the `quint-execute-spec` skill.

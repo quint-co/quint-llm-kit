@@ -111,6 +111,64 @@ run nondetTest = {
 
 Multiple `nondet` bindings explore combinations. Use `--seed` to reproduce a specific run.
 
+### Conditional expectations — one test covering several branches
+
+When the *correct* outcome depends on how the random inputs relate to each other, don't write one
+fixed assertion (it can't be right for every draw) and don't split into many hardcoded tests.
+Instead branch the `.expect()` on the inputs and assert the outcome that's correct **for that
+branch** — a single `run` then exercises the whole decision surface.
+
+```quint
+// withdrawCapped is always enabled; it takes the whole balance if asked for more.
+run withdrawTest = {
+  nondet amount = 50.to(150).oneOf()
+  init                              // balance starts at 100
+    .then(withdrawCapped(amount))
+    .expect(if (amount > 100)
+              balance == 0                 // asked for more than held → capped to the balance
+            else
+              balance == 100 - amount)     // normal deduction
+}
+```
+
+The branch condition uses the `nondet` values; each arm asserts the result appropriate to that
+relationship (under/at/over a threshold, full/partial, etc.).
+
+**Caveat — this only works while the action stays *enabled* across all branches.** A `.then(act)`
+on a **disabled** action (its guard is false) cannot proceed: the test stops with `Cannot continue
+to "expect"` before the `.expect` is ever evaluated — so you **cannot** write an `if`-arm meaning
+"in this case the action was blocked, assert nothing changed." Conditional `.expect()` is for an
+always-enabled action whose *result* differs by input. To test that an action is correctly
+**blocked** for some inputs, use a separate `.then(act.fail())` step instead (the spec uses
+disabled actions, not a `success` boolean — see `patterns.md`).
+
+### Variable scope inside `.expect(...)`
+
+A `val` bound inside an `and { ... }` is **not** in scope for sibling conditions or an `if` guard in
+the same block — you get an "unresolved name" error:
+
+```quint
+// ❌ actualReward is not visible to the `if` below it
+.expect(and {
+  val actualReward = reward - commission
+  balance == initial + actualReward,
+  if (actualReward > 0) balance > initial else true,   // ERROR: actualReward not in scope
+})
+```
+
+Wrap the conditions in an `all { }` so the shared `val`s scope over all of them — and remember
+`all { }` separates conditions with **commas**, not `and`:
+
+```quint
+// ✅ shared vals scope over the whole all-block
+.expect(
+  val actualReward = reward - commission
+  all {
+    balance == initial + actualReward,
+    if (actualReward > 0) balance > initial else true,
+  })
+```
+
 ---
 
 ## Running Tests
