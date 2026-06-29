@@ -1,16 +1,5 @@
 # Quint CLI Reference
 
-## Contents
-
-- [Installation](#installation)
-- [Commands Overview](#commands-overview)
-- [`quint run` — Simulation](#quint-run--simulation)
-- [`quint test` — Deterministic Tests](#quint-test--deterministic-tests)
-- [`quint verify` — Model Checking](#quint-verify--model-checking)
-- [`quint typecheck`](#quint-typecheck)
-- [Reading Output](#reading-output)
-- [Verbosity Guide](#verbosity-guide)
-
 ## Installation
 
 ```bash
@@ -41,8 +30,8 @@ Randomly walks the state space. Finds obvious violations in seconds.
 quint run spec.qnt \
   --main MyModule \
   --invariant myInvariant \
-  --max-steps 100
-  # --max-samples defaults to 10000; lower it only for quick debugging, not to confirm a property
+  --max-steps 100 \
+  --max-samples 1000
 ```
 
 ### Key flags
@@ -58,7 +47,7 @@ quint run spec.qnt \
 | `--step` | `step` | Name of the step action in the module |
 | `--max-samples` | 10000 | Max number of runs before giving up |
 | `--seed` | random | Seed for reproducibility |
-| `--verbosity` | 2 | Output detail, **0–5**: 0=silent, 1=pass/fail, 2=example trace, 3=+`nondet` picks, 4–5=+evaluator internals |
+| `--verbosity` | 2 | Output detail: 1=minimal, 2=action names, 3=state changes, 4=full dumps |
 | `--hide` | `[]` | Variable names to hide from terminal output |
 | `--out-itf` | — | Write traces in Informal Trace Format (for ITF Viewer) |
 | `--mbt` | false | Emit `mbt::actionTaken` and `mbt::nondetPicks` metadata for MBT |
@@ -69,17 +58,17 @@ quint run spec.qnt \
 |---|---|
 | `"An example execution"` | Invariant violated — counterexample found |
 | `"No violation found"` | Invariant held across all sampled traces |
-| `"<w> was witnessed in N trace(s) … (P%)"` (with `--witnesses`) | Witness `<w>` reachable in N traces; **0 traces** ⚠️ = unreachable in this sampling |
+| `"An example execution"` for a **witness** | Witness violated — state is reachable ✅ |
+| `"No trace found"` for a **witness** | Witness never violated — state may be unreachable ⚠️ |
 
 ### Verbosity guide
 
 | Level | Shows | When to use |
 |---|---|---|
-| 0 | Nothing (silent) | Scripted/bulk runs where you only check the exit code |
-| 1 | Pass/fail line only | Bulk runs |
-| 2 (default) | Example trace (states) | Quick trace understanding |
-| 3 | + `nondet` picks / state changes | Debugging failures |
-| 4–5 | + evaluator internals | Deep debugging of the tool itself |
+| 1 | Pass/fail only | Bulk runs |
+| 2 | Action names | Quick trace understanding |
+| 3 | State changes + `nondet` picks | Debugging failures |
+| 4 | Full state dumps | Deep debugging |
 
 ### Notifying the user about non-default actions
 
@@ -177,14 +166,6 @@ quint                           # start blank REPL
 quint -r spec.qnt::ModuleName  # load file and import module
 ```
 
-To drive the REPL **non-interactively** (piping commands from a script/agent), add
-`--backend=typescript` — the default Rust backend evaluates nothing on piped stdin
-(`ERR_USE_AFTER_CLOSE: readline was closed`). Interactive TTY use works on either backend.
-
-```bash
-printf 'init\nstep\nbalances\n' | quint -r spec.qnt::ModuleName --backend=typescript
-```
-
 ### REPL commands
 
 | Command | Effect |
@@ -192,7 +173,6 @@ printf 'init\nstep\nbalances\n' | quint -r spec.qnt::ModuleName --backend=typesc
 | `.load spec.qnt` | Load (or reload) a file |
 | `.clear` | Reset all session state |
 | `.save kettle.qnt` | Save session to file |
-| `.seed[=<n>]` | Set (or get) the random seed — makes `nondet`/`oneOf` picks reproducible: same seed, same trace |
 | `.exit` | Exit REPL |
 | `:type expr` | Show inferred type of expression |
 
@@ -222,17 +202,15 @@ Map("alice" -> 999)
 ### Check a witness (reachability)
 
 ```bash
-# Positive predicate; expect a non-zero trace count (0 traces = unreachable)
-quint run spec.qnt --witnesses canDecide --max-steps 100
+# Witness should be VIOLATED — violation means the state IS reachable
+quint run spec.qnt --invariant canDecideSuccessfully --max-steps 100
 ```
 
 ### Check a safety invariant
 
 ```bash
-# Invariant should be SATISFIED — violation means a bug.
-# Keep --max-samples at its 10000 default (or higher) when confirming a property;
-# don't lower it to go faster. See simulations.md "Choosing --max-samples and --max-steps".
-quint run spec.qnt --invariant noNegativeBalances --max-steps 100
+# Invariant should be SATISFIED — violation means a bug
+quint run spec.qnt --invariant noNegativeBalances --max-samples 5000
 ```
 
 ### Run a specific test

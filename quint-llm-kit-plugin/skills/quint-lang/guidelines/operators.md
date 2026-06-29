@@ -2,15 +2,6 @@
 
 This file covers operators missing from SKILL.md's quick reference. Read this when you need the full operator surface.
 
-## Contents
-
-- [Set operators (extended)](#set-operators-extended)
-- [List operators (extended)](#list-operators-extended)
-- [Map operators (extended)](#map-operators-extended)
-- [Run tests and witnesses](#run-tests-and-witnesses)
-- [Temporal operators (extended)](#temporal-operators-extended)
-- [Debug output](#debug-output)
-
 ---
 
 ## Set operators (extended)
@@ -27,12 +18,11 @@ Set(Set(1, 2), Set(3, 4)).flatten()      // Set(1, 2, 3, 4)
 
 // Selection
 Set(5).getOnlyElement()                  // 5 — deterministic; undefined if size != 1
+Set(1, 2, 3).chooseSome()               // deterministic pick — same result every time
 nondet x = Set(1, 2, 3).oneOf()        // nondeterministic pick — use in actions only
 ```
 
-**Picking an element**: use `getOnlyElement()` when the set has exactly one element (deterministic), or `oneOf()` inside a `nondet` binding in an action for a nondeterministic pick. `oneOf` outside a `nondet` binding causes a type/effect error.
-
-> Quint also has a `chooseSome` operator in its type signatures, but the simulator and verifier **do not implement it** — calling it raises a runtime error (`QNT501: Runtime does not support the built-in operator 'chooseSome'`). Do not use it in executable specs.
+**`chooseSome` vs `oneOf`**: `chooseSome` is deterministic and safe in `pure def` and `val`. `oneOf` is nondeterministic and must appear inside a `nondet` binding in an action. Using `oneOf` outside an action causes a type/effect error.
 
 ---
 
@@ -83,14 +73,11 @@ run threeVotes = init.then(3.reps(i => vote(i))).expect(votes.size() == 3)
 // Negative test — assert an action fails
 run cannotDoubleVote = init.then(vote(1)).then(vote(1).fail())
 
-// Assert mid-trace. An `assert` must ride inside an `all { }` that also assigns
-// the state variables — a bare `.then(assert(...))` step assigns nothing and
-// fails to typecheck (effect mismatch with the rest of the trace). Use `.expect`
-// for an after-the-fact check.
+// Assert mid-trace
 run checkAfterVote =
   init
     .then(all { vote(1), assert(votes.size() == 0) })  // assert BEFORE vote executes
-    .expect(votes.size() == 1)                         // assert AFTER (no extra step needed)
+    .then(assert(votes.size() == 1))                   // assert AFTER
 ```
 
 ### Operators
@@ -115,7 +102,7 @@ run decisionIsReachable =
     .expect(decided == true)
 ```
 
-This `run`-style witness documents a *known* reachable path and is checked with `quint test` (it passes when the path completes). For exploratory reachability, write the target as a predicate and use `quint run --witnesses <pred>` instead — a non-zero trace count means reachable. See `guidelines/simulations.md` for the full witnesses treatment.
+If `quint run` with `--invariant=decisionIsReachable` shows a violation, the state is reachable (which is what you want). See `guidelines/witnesses.md` for the full witnesses concept.
 
 ---
 
@@ -125,7 +112,7 @@ This `run`-style witness documents a *known* reachable path and is checked with 
 // Logical equivalence
 p.iff(q)           // true when p and q have the same truth value
 
-// Stuttering — `vars` is a Set of state variables: Set(x), Set(x, y), ...
+// Stuttering
 a.orKeep(vars)     // a is true, OR all vars in vars are unchanged
 a.mustChange(vars) // a is true AND at least one var in vars changed
 
@@ -137,16 +124,14 @@ a.weakFair(vars)   // if a is eventually always enabled, it eventually fires
 a.strongFair(vars) // if a is infinitely often enabled, it eventually fires
 ```
 
-The `vars` argument is a **`Set` of state variables**, so every variable in it must have the **same type** (e.g. `Set(votes, committed)` where both are `Set[int]`). To cover differently-typed variables, group cohesive state into one record variable and pass `Set(localState)`, or pass `Set(theOneVar)`. The official examples use a single variable: `Next.weakFair(Set(x))`.
-
 ### Fairness in practice
 
 Fairness conditions are needed to rule out trivially non-terminating behaviours in liveness proofs. Add `weakFair` for actions that should eventually fire when continuously enabled (e.g. message delivery). Add `strongFair` for actions that may be intermittently enabled but must eventually fire.
 
 ```quint
-// @temporal — pass same-typed vars; here both are sets
+// @temporal
 temporal liveness: bool =
-  step.weakFair(Set(votes, delivered)).implies(eventually(decided))
+  step.weakFair(Set(phase, votes)).implies(eventually(decided))
 ```
 
 ---

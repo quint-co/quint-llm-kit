@@ -20,7 +20,7 @@ All changes must satisfy it. The spec is reviewed, then the code follows.
 - **Gap closure**: code has drifted from the spec; bring it back into alignment
 - **Spec-first change**: update the spec first, then implement to satisfy it
 
-If no spec exists yet, use `quint-modeling` first to create the grounding artifact.
+If no spec exists yet, use `quint-from-code` first to create the grounding artifact.
 
 ---
 

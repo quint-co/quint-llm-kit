@@ -2,17 +2,6 @@
 
 **CRITICAL**: These are fundamental limitations of the Quint language. Violating these constraints will result in compilation errors that cannot be worked around.
 
-## Contents
-
-- [1. No String Manipulation](#1-no-string-manipulation)
-- [2. No Nested Pattern Matching](#2-no-nested-pattern-matching)
-- [3. Destructuring — bindings and lambdas only](#3-destructuring--bindings-and-lambdas-only)
-- [4. No Mutable Local Variables](#4-no-mutable-local-variables)
-- [5. No Loops](#5-no-loops)
-- [6. No Early Returns](#6-no-early-returns)
-- [7. Type Inference Limitations](#7-type-inference-limitations)
-- [Debugging Workflow](#debugging-workflow)
-
 ---
 
 ## 1. No String Manipulation
@@ -63,30 +52,29 @@ match msg
 
 ---
 
-## 3. Destructuring — bindings and lambdas only
+## 3. No Destructuring
 
-Destructuring (unpacking a tuple or record into named parts) works in **`val`/let bindings**
-and in **lambda parameters**, but **not** in `def`/operator parameter lists or `match` arms.
+You cannot unpack tuples or records in binding positions.
 
 ```quint
-// ✅ Allowed — val/let binding (tuple and record)
-val (x, y) = get_pair()        // x = pair._1, y = pair._2
-val { name, age } = person     // name = person.name, age = person.age
+// ❌ NOT allowed
+val (x, y) = get_pair()       // tuple destructuring
+val { name, age } = person    // record destructuring
+def f((a, b)) = a + b         // parameter destructuring
 
-// ✅ Allowed — tuple destructuring in a lambda (note the DOUBLE parens)
-mySet.map(((a, b)) => a + b)   // ((a, b)) => … unpacks one tuple argument
-// contrast: (a, b) => …  is a TWO-argument lambda, not destructuring
+// ✅ Allowed — explicit field access
+val pair = get_pair()
+val x = pair._1
+val y = pair._2
 
-// ❌ NOT allowed — destructuring in a def/operator parameter list
-def f((a, b)) = a + b          // use a single param + ._1/._2 instead:
+val person_name = person.name
 def f(p) = p._1 + p._2
 
-// ❌ NOT allowed — destructuring a tuple inside a match arm
-match msg { | Foo((a, b)) => ... }       // bind, then access:
-match msg { | Foo(hr)     => hr._1 + hr._2 }
+// ✅ Allowed — match for sum types
+val value = match optional
+  | Some(v) => v
+  | None    => default_value
 ```
-
-The `((x, y)) => e` lambda form is sugar for `t => { val x = t._1  val y = t._2  e }`.
 
 ---
 

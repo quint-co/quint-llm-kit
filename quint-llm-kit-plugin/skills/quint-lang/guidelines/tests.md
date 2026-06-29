@@ -1,13 +1,5 @@
 # Writing and Debugging Tests
 
-## Contents
-
-- [File Structure](#file-structure)
-- [Writing Tests](#writing-tests)
-- [Running Tests](#running-tests)
-- [Debugging Failures](#debugging-failures)
-- [REPL-First Debugging](#repl-first-debugging)
-
 ## File Structure
 
 Tests live in a separate file that imports the main spec. The main spec has no `run` definitions.
@@ -34,11 +26,6 @@ Run with:
 ```bash
 quint test systemTest.qnt --main systemTest --match basicTest
 ```
-
-> **Naming gotcha:** by default `quint test` runs only `run` definitions whose name **ends in
-> `Test`** (e.g. `basicTest`). A `run` named otherwise (`happyPath`, `testBasic`, `checkQuorum`) is
-> **silently skipped** — no error, no output, exit 0 — which reads as "passed." Either suffix the
-> name with `Test`, or select it explicitly with `--match <name>` (or `--match '.*'` for all).
 
 ---
 
@@ -85,16 +72,11 @@ run cannotDoubleVote =
 
 ### Assert mid-trace
 
-An `assert` must sit inside an `all { }` block that also assigns the state
-variables. A standalone `.then(assert(...))` step assigns nothing, so its effect
-cannot unify with the rest of the trace and the test fails to typecheck. For an
-after-the-fact check, use `.expect(...)` instead of a trailing assert step.
-
 ```quint
 run checkTiming =
   init
     .then(all { vote(1), assert(votes.size() == 0) })  // assert BEFORE vote executes
-    .expect(votes.size() == 1)                          // assert AFTER
+    .then(assert(votes.size() == 1))                    // assert AFTER
 ```
 
 ### Nondeterministic tests
@@ -110,64 +92,6 @@ run nondetTest = {
 ```
 
 Multiple `nondet` bindings explore combinations. Use `--seed` to reproduce a specific run.
-
-### Conditional expectations — one test covering several branches
-
-When the *correct* outcome depends on how the random inputs relate to each other, don't write one
-fixed assertion (it can't be right for every draw) and don't split into many hardcoded tests.
-Instead branch the `.expect()` on the inputs and assert the outcome that's correct **for that
-branch** — a single `run` then exercises the whole decision surface.
-
-```quint
-// withdrawCapped is always enabled; it takes the whole balance if asked for more.
-run withdrawTest = {
-  nondet amount = 50.to(150).oneOf()
-  init                              // balance starts at 100
-    .then(withdrawCapped(amount))
-    .expect(if (amount > 100)
-              balance == 0                 // asked for more than held → capped to the balance
-            else
-              balance == 100 - amount)     // normal deduction
-}
-```
-
-The branch condition uses the `nondet` values; each arm asserts the result appropriate to that
-relationship (under/at/over a threshold, full/partial, etc.).
-
-**Caveat — this only works while the action stays *enabled* across all branches.** A `.then(act)`
-on a **disabled** action (its guard is false) cannot proceed: the test stops with `Cannot continue
-to "expect"` before the `.expect` is ever evaluated — so you **cannot** write an `if`-arm meaning
-"in this case the action was blocked, assert nothing changed." Conditional `.expect()` is for an
-always-enabled action whose *result* differs by input. To test that an action is correctly
-**blocked** for some inputs, use a separate `.then(act.fail())` step instead (the spec uses
-disabled actions, not a `success` boolean — see `patterns.md`).
-
-### Variable scope inside `.expect(...)`
-
-A `val` bound inside an `and { ... }` is **not** in scope for sibling conditions or an `if` guard in
-the same block — you get an "unresolved name" error:
-
-```quint
-// ❌ actualReward is not visible to the `if` below it
-.expect(and {
-  val actualReward = reward - commission
-  balance == initial + actualReward,
-  if (actualReward > 0) balance > initial else true,   // ERROR: actualReward not in scope
-})
-```
-
-Wrap the conditions in an `all { }` so the shared `val`s scope over all of them — and remember
-`all { }` separates conditions with **commas**, not `and`:
-
-```quint
-// ✅ shared vals scope over the whole all-block
-.expect(
-  val actualReward = reward - commission
-  all {
-    balance == initial + actualReward,
-    if (actualReward > 0) balance > initial else true,
-  })
-```
 
 ---
 
@@ -191,56 +115,67 @@ quint test systemTest.qnt --main systemTest --match basicTest --seed 0x1a2b3c
 
 ## Debugging Failures
 
-### `quint test` output is sparse — it does NOT show the state
+### Critical: error location ≠ failure point
 
-On a failure, `quint test` prints only the error code, the offending `run`, and a seed — **no
-state, no trace, at any `--verbosity`** (even `--verbosity 5` adds nothing for a test). The two
-failure modes read differently, and the error text is your only clue which one you hit:
+Quint reports errors at the **start** of the test chain (`init`), not where `.expect()` actually failed.
+
+```quint
+run myTest = {
+  init                              // ← error reported HERE (e.g. line 42)
+    .then(action1)
+    .then(action2)
+    .expect(some_condition)         // ← actual failure HERE
+    .then(action3)
+    .expect(another_condition)      // ← or here
+}
+```
 
 ```
-Error [QNT508]: Expect condition does not hold true   ← an .expect(...) evaluated to false
-Error [QNT508]: Cannot continue to "expect"           ← a .then(action) was DISABLED (its guard
-                                                          was false), so the trace couldn't proceed
+error: [QNT508] Expect condition does not hold true
+42:     init
 ```
 
-Both underline the **whole `run` expression**, not the specific `.expect` or action that failed, and
-neither tells you the actual values. To debug, you must recover the state yourself — two reliable
-ways below.
+The line number in the error points to `init`, not the failing `.expect()`. Always use `--verbosity 3` to find the real failure.
 
-### Recover the state — Option A: replay in the REPL (best for exploring)
-
-Feed `init` then each action of the failing trace into the REPL and query whatever the `.expect`
-checked. Each action prints `true` and the state transition (`old => new`); then evaluate any
-expression at the current state:
+### Step 1: Run with verbosity 3
 
 ```bash
-printf 'init\ntransfer("alice","bob",50)\nstate.balances.get("alice")\n' \
-  | quint -r system.qnt::system --backend=typescript
-# >>> true
-# { state: { balances: Map("alice" -> 100 => 50, "bob" -> 100 => 150) } }
-# >>> 50          ← the value your .expect compared; here 50, so `== 999` is obviously false
+quint test systemTest.qnt --main systemTest --match myTest --verbosity 3
 ```
 
-**`--backend=typescript` is required for piped/non-interactive REPL input.** The default Rust
-backend closes its readline on EOF and evaluates nothing (`ERR_USE_AFTER_CLOSE: readline was
-closed`) — so without the flag this recipe silently produces no output. (Interactive TTY use works
-on either backend; it's specifically piped stdin that needs `typescript`.)
+Output shows frames:
+```
+[Frame 0] init => true
+[Frame 1] action1 => true
+[Frame 2] action2 => true
+[Frame 3] action3 => true
+# Fails here — no Frame 4
 
-For nondeterministic stepping, set a seed so the run is reproducible: `.seed=<number>` in the REPL
-(or `--seed` on the CLI) makes every `nondet`/`oneOf` pick deterministic — same seed, same trace.
-Capture the seed `quint test`/`quint run` prints on a failure and replay it to reproduce exactly.
-
-### Recover the state — Option B: dump the trace with `--out-itf` (scriptable)
-
-`quint test --out-itf` writes the full state trace of every test (passing *and* failing) to a JSON
-file — useful in scripts or when you want the machine-readable trace:
-
-```bash
-quint test systemTest.qnt --match myTest --out-itf "out_{test}_{seq}.itf.json"
-# then read the states from out_myTest_0.itf.json (the last state is where it stopped)
+Frame 3 state:
+  balance: 0
+  votes: Set()
 ```
 
-### Then map the trace to the test code and classify the bug
+### Step 2: Map frames to test code
+
+```quint
+run myTest = {
+  init                    // Frame 0
+    .then(action1)        // Frame 1
+    .then(action2)        // Frame 2
+    .expect(cond1)        // checked after Frame 2
+    .then(action3)        // Frame 3
+    .expect(cond2)        // checked after Frame 3 ← FAILS HERE
+}
+```
+
+If the trace stops after Frame 3 and no Frame 4 appears, the `.expect()` after Frame 3 failed.
+
+### Step 3: Compare actual vs expected
+
+From the frame output, read the actual state values. Compare against what each `.expect()` requires.
+
+### Step 4: Classify the bug
 
 | Symptom | Type | Fix |
 |---|---|---|
@@ -284,25 +219,16 @@ run good =
 Before writing a failing test, isolate the problem in the REPL:
 
 ```bash
-# Interactive (TTY): either backend works
+# Load the spec and test interactively
 quint -r system.qnt::system
 
-# Force a specific state with an anonymous action, then step and query
+# Force a specific state with an anonymous action
 >>> all { balances' = Set("alice").mapBy(_ => 100), phase' = "ready" }
 true
 >>> transfer("alice", "bob", 50)
 true
 >>> balances.get("alice")
 50
-```
-
-When driving the REPL **non-interactively** (piping commands, e.g. from a script or an agent), add
-`--backend=typescript` — the default Rust backend evaluates nothing on piped stdin (see Option A
-above):
-
-```bash
-printf 'init\ntransfer("alice","bob",50)\nbalances.get("alice")\n' \
-  | quint -r system.qnt::system --backend=typescript
 ```
 
 If the REPL shows wrong output, the spec has a bug. If the REPL shows the right output but the test fails, the test chain has a sequencing error.
