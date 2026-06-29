@@ -1,20 +1,18 @@
 ---
 name: quint-lang
 description: >
-  Quint language and CLI reference — the expert on Quint syntax, operators, types, `basicSpells`,
-  the toolchain (typecheck/run/test/verify), and how to read simulation and counterexample output.
-  Use when writing or debugging the contents of a `.qnt` file, fixing a typecheck/parse error,
-  looking up an operator or idiom, analyzing an invariant violation or counterexample trace, or
-  optimizing state-space exploration. This is for working IN Quint at the language level — not for
-  analyzing or running TLA+/TLC itself. For building a NEW model end-to-end from some source —
-  including translating a TLA+ spec into Quint, or modeling code/requirements/an idea — use the
-  quint-modeling skill, which owns that workflow and consults this reference for syntax. Keywords:
-  quint, syntax, operators, typecheck, model checking, counterexample, basicSpells, CLI,
-  specification language.
+  Expert for Quint, a modern specification language and model checker for concurrent and distributed
+  systems. Covers the full Quint language, CLI toolchain, distributed protocols and
+  concurrent algorithms, and formal verification. Use when: writing/debugging .qnt files,
+  modeling distributed systems, verifying safety properties, analyzing invariant violations, optimizing
+  state space exploration, or translating TLA+. Keywords: quint, model checking, formal verification,
+  TLA+, distributed systems, concurrent systems, complex behaviours, specification language.
 ---
 # Quint Language Reference
 
 Quint is an executable specification language for complex systems, developed by Informal Systems. It compiles to TLA+ and supports simulation and model checking.
+
+**Project convention:** Place all Quint specification files (`.qnt`) inside the **`quint-specs/`** folder. Create, edit, and read only paths under `quint-specs/`.
 
 ## Module structure
 
@@ -42,7 +40,7 @@ import Voting as V           // namespace alias
 | `str` | Strings | `"hello"` |
 | `Set[T]` | Finite set | `Set(1, 2, 3)` |
 | `List[T]` | Ordered sequence | `List(1, 2, 3)` |
-| `K -> V` | Key-value map (type is `K -> V`, **not** `Map[K, V]`) | value: `Map("a" -> 1)` |
+| `Map[K, V]` | Key-value map | `Map("a" -> 1)` |
 | `(T1, T2)` | Tuple | `(1, "x")` |
 | `{ f: T, g: U }` | Record | `{ x: 1, ok: true }` |
 | `T \| U` | Sum (variant) | (use type alias) |
@@ -58,25 +56,16 @@ type Phase = str   // "propose" | "vote" | "commit"
 ## Definitions
 
 ```quint
-// Module parameter — fixed at instantiation, not a state variable
-const N: int
-const Nodes: Set[str]
-
 // Pure function — no state access, usable anywhere
 pure def max(a: int, b: int): int = if (a > b) a else b
 
-// Stateful operator — can read vars, takes arguments (unlike val)
-def isActive(n: str): bool = active.contains(n)
-
-// State-reading value — can read vars, no arguments
+// State-reading definition — can read vars
 val quorum: bool = votes.size() * 2 > nodes.size()
 
-// Compile-time constant
+// Constant (fixed value, not a state variable)
 pure val N: int = 4
 val threshold: int = N / 2 + 1
 ```
-
-`const` vs `pure val`: `const` is a module parameter bound at instantiation (`import A(N = 3)`); `pure val` is a fixed expression computed once. `def` vs `val`: `def` takes arguments; `val` does not.
 
 ---
 
@@ -112,8 +101,8 @@ action init: bool = all {
 }
 
 action propose(node: int): bool = all {
-  phase == "idle",
-  node > 0,
+  require(phase == "idle"),
+  require(node > 0),
   leader' = node,
   phase' = "propose",
   votes' = votes,
@@ -124,7 +113,8 @@ action propose(node: int): bool = all {
 
 Key rules:
 - Every `var` must be assigned in every action (use `x' = x` to leave unchanged).
-- `all { ... }` — all sub-expressions must hold (conjunction). Guards are plain boolean expressions inside `all { }`.
+- `require(cond)` blocks the action if `cond` is false.
+- `all { ... }` — all sub-expressions must hold (conjunction).
 - `any { ... }` — at least one must hold (disjunction); the REPL picks non-deterministically.
 
 ---
@@ -143,7 +133,7 @@ action step: bool = any {
 action deliverMessage: bool = {
   nondet msg = pending.oneOf()
   all {
-    pending.size() > 0,
+    require(pending.size() > 0),
     delivered' = delivered.union(Set(msg)),
     pending' = pending.exclude(Set(msg)),
     // ... other vars unchanged
@@ -167,7 +157,6 @@ Set(1, 2, 3).size()               // 3
 Set(1, 2, 3).forall(x => x > 0)  // true
 Set(1, 2, 3).exists(x => x > 2)  // true
 1.to(5)                           // Set(1, 2, 3, 4, 5)
-nondet x = Set(1, 2, 3).oneOf()   // non-deterministic pick — only valid in nondet bindings
 ```
 
 ---
@@ -193,7 +182,9 @@ List(1, 2, 3).select(x => x > 1) // List(2, 3)
 Map("a" -> 1, "b" -> 2).get("a")        // 1
 Map("a" -> 1).put("b", 2)               // Map("a" -> 1, "b" -> 2)
 Map("a" -> 1, "b" -> 2).keys()          // Set("a", "b")
-Set(1, 2, 3).mapBy(k => k * 2)          // Map(1 -> 2, 2 -> 4, 3 -> 6)  — set of keys → map
+Map("a" -> 1, "b" -> 2).values()        // Set(1, 2) (as set)
+Map("a" -> 1).mapBy(k => k + "!")       // Map("a!" -> 1)  — remap keys
+Map("a" -> 1, "b" -> 2).transformValues(v => v * 10)  // Map("a" -> 10, "b" -> 20)
 ```
 
 ---
@@ -230,10 +221,10 @@ n.voted                          // false
 ### Updating (immutable — returns a new record)
 
 ```quint
-{ ...n, phase: "propose" }                          // ✅ preferred — idiomatic, handles multiple fields
+{ ...n, phase: "propose" }                          // ✅ spread syntax
 { ...n, voted: true, phase: "vote" }                // ✅ multiple fields at once
 
-n.with("phase", "propose")                          // ⚠️ valid but non-idiomatic — field name is a string literal
+n.with("phase", "propose")                          // ❌ .with() causes compile errors
 ```
 
 ### Records as state — when to group variables
@@ -258,7 +249,7 @@ type LocalState = {
   id: int,
   phase: Phase,
   est1: int,
-  est2: Option[int],   // Option is from basicSpells, not built in — see Basic spells below
+  est2: Option[int],
   round: int,
   crashed: bool,
   leader: int,
@@ -286,12 +277,10 @@ type LocalState = { phase: str, votedFor: int, log: List[int] }
 
 var nodes: int -> LocalState
 
-action becomeFollower(id: int): bool = {
-  val node = nodes.get(id)
-  all {
-    node.phase == "candidate",
-    nodes' = nodes.put(id, {...node, phase: "follower"}),
-  }
+action becomeFollower(id: int): bool = all {
+  require(nodes.get(id).phase == "candidate"),
+  val node = nodes.get(id),
+  nodes' = nodes.put(id, {...node, phase: "follower"}),
 }
 ```
 
@@ -299,7 +288,7 @@ action becomeFollower(id: int): bool = {
 
 ```quint
 type ClusterState = {
-  nodes:   int -> NodeState,
+  nodes:   Map[int, NodeState],
   leader:  int,
   epoch:   int,
 }
@@ -337,34 +326,19 @@ Sum types (variants) represent a value that can be one of several distinct cases
 
 ```quint
 type Action =
-  | Propose({ value: int, proposer: int })
-  | Vote({ value: int, voter: int })
-  | Decide({ value: int })
+  | { tag: "Propose", value: int, proposer: int }
+  | { tag: "Vote",    value: int, voter: int    }
+  | { tag: "Decide",  value: int                }
 ```
 
-Each variant has a named constructor and carries one payload. A constructor takes exactly one argument — wrap multiple fields in a record (as above) or a tuple.
-
-Construct a value by calling the constructor:
-```quint
-val a: Action = Propose({ value: 1, proposer: 2 })
-```
-
-Pattern-match with `match`, binding the payload:
+Pattern-match with `match`:
 ```quint
 pure def describeAction(a: Action): str =
   match a {
-    | Propose(p) => "proposal"
-    | Vote(v)    => "vote"
-    | Decide(d)  => "decision"
+    | { tag: "Propose", ... } => "proposal"
+    | { tag: "Vote",    ... } => "vote"
+    | { tag: "Decide",  ... } => "decision"
   }
-```
-
-Use `_` to ignore the payload when you only care which variant it is:
-```quint
-match a {
-  | Propose(_) => "proposal"
-  | _          => "other"
-}
 ```
 
 Use sum types when a message, event, or state can take structurally different forms — not just different values of the same type.
@@ -396,23 +370,6 @@ Before writing `var` declarations, answer these questions for each candidate gro
 
 ---
 
-## Boolean operators
-
-```quint
-not(p)             // negation — Quint has no ! operator
-p and q            // conjunction
-p or q             // disjunction
-p implies q        // p => q  (not(p) or q)
-p iff q            // p == q for booleans
-
-and { p1, p2, p3 } // block form — equivalent to p1 and p2 and p3
-or  { p1, p2, p3 } // block form — at least one must hold
-```
-
-`and { }` and `or { }` are the same operators as `all { }` and `any { }` in actions — use whichever reads more naturally in context.
-
----
-
 ## Invariants and temporal properties
 
 ```quint
@@ -434,28 +391,12 @@ p.implies(q)       // p => q
 
 ---
 
-## Assume
+## Assume (axioms)
 
 ```quint
 assume nodeCountPositive = N > 0
 assume quorumMajority = 2 * quorum > N
 ```
-
-An `assume` states a premise about constants, but it is **not enforced** — a violated `assume`
-is silently ignored by `quint typecheck`, `quint run`, and `quint verify` (none of them flags
-it). It is documentation, not a checked constraint. To actually *check* a condition on
-constants, write a `run` test that asserts it (it executes and fails when the condition is
-false):
-
-```quint
-run quorumAssumptionTest = all {
-  2 * quorum > N,
-  N > 0,
-}
-```
-
-Run it with `quint test`; the test fails (reporting which conjunct broke) if a constant
-assignment violates the condition.
 
 ---
 
@@ -484,14 +425,17 @@ Type inspection:
 
 ---
 
-## File layout
+## File layout convention
 
-Split specs across two files:
+**Put all Quint specs inside the `quint-specs/` folder.** Never create or edit `.qnt` files outside this directory.
 
 ```
-<protocol-name>.qnt        # main module — step, init, vars, invariants
-<protocol-name>_test.qnt   # test module — run tests and scenario witnesses (imports main)
+quint-specs/
+  <protocol-name>.qnt        # main module — step, init, vars, invariants
+  <protocol-name>_test.qnt   # test module — run tests and scenario witnesses (imports main)
 ```
+
+When creating, editing, or reading Quint files, always use paths under `quint-specs/` (e.g. `quint-specs/MyProtocol.qnt`).
 
 ### Module responsibilities
 
@@ -518,33 +462,56 @@ The primitive's `module_name` field (set during indexing) always holds the corre
 
 ---
 
----
+## Modelling Approach
 
-## Basic spells
+Six steps, in order. Never build more than one step without verifying the previous one — use `quint typecheck` and `quint run` / `quint test` first; use the REPL when you need interactive eval or expression-level stepping.
 
-Many useful operators are not built into Quint but are available in `basicSpells.qnt`, a standard library shipped with most Quint projects. Import it with:
+**1. Identify state**
+What variables fully describe the system at any point in time? Define `type State` / `type LocalState` as records and prefer a single grouped state variable per cohesive unit. For N processes, use a map `NodeId -> LocalState`. Keep separate top-level vars only for genuinely independent concerns.
 
-```quint
-import basicSpells.* from "./basicSpells"
-```
+**2. Identify operations**
+List every action the system supports. For each: name it, list its parameters, state its precondition, and describe what changes. This is design — no code yet.
 
-Key definitions it provides:
+**3. Write pure functions**
+Implement each operation as a `pure def` taking `State` and returning `{success: bool, newState: State}`. Exercise each one with checks you can automate (`quint test` / small `run` blocks) or the REPL when you need interactive inspection. If a pure function surprises you, the spec has a bug.
 
-| Definition | What it does |
-|---|---|
-| `type Option[a] = Some(a) \| None` | The option type — Quint has **no** built-in `Option`. Any spec field typed `Option[T]` depends on this import. |
-| `unwrap(o)` | The value inside `Some`; undefined on `None` |
-| `require(cond)` | Blocks the action if `cond` is false (cleaner than bare `all { cond, ... }`) |
-| `values(m)` | Set of all values in map `m` |
-| `transformValues(m, f)` | New map with `f` applied to every value |
-| `has(m, key)` | True if `key` is bound in `m` |
-| `getOrElse(m, key, default)` | `m.get(key)` if present, otherwise `default` |
-| `mapRemove(m, key)` / `mapRemoveAll(m, ks)` | Copy of `m` without `key` (or without the set of keys `ks`) |
-| `setRemove(s, e)` / `setAdd(s, e)` | Copy of set `s` without / with element `e` |
-| `find(s, f)` / `findFirst(l, f)` | First element of set / list satisfying `f`, as `Option` |
-| `max(i, j)` / `min(i, j)` / `abs(i)` | Max / min of two integers; absolute value |
+**4. Wire up the state machine**
+Write state variables, `init` (pre-populate every map with `mapBy`), `unchanged_all`, and thin action wrappers that call your pure functions. Validate with `quint typecheck` and `quint run` / `quint test`; use the REPL when you need to step `init` and actions interactively.
 
-When you see a spec using `Option`, `require`, `values`, or `transformValues` without an import, it is relying on basicSpells — check whether the project includes it. (Less common operators live in a sibling `rareSpells.qnt`.)
+**5. Add witnesses, then invariants**
+Witnesses first: one per major action, asserting the action's success state is reachable. A satisfied witness means the action is dead — fix it before moving on. Then add invariants for safety properties.
+
+**6. Write `step` and simulate**
+Compose all actions in `any { ... }`. Run `quint run --invariant` to stress-test with random walks. Read counterexample traces step by step — the state at each transition tells you exactly what went wrong.
+
+### Abstraction level
+
+Model the **protocol**, not the implementation. The right level is: decisions, roles, messages, and rounds. The wrong level is: network buffers, serialization formats, retry logic, timers.
+
+Rules of thumb:
+
+- **Omit what you're not verifying.** If you're verifying a leader election protocol, omit the application logic that runs on top of it.
+- **Use symbolic IDs.** Represent nodes as `str` (`"alice"`, `"p1"`) or `int`, not structs. Keep node sets small — 3 processes is enough for most safety properties.
+- **Keep value domains small.** A balance range of `0..10` explores the same safety properties as `0..1000000` at a fraction of the cost.
+- **Use the message soup.** Store all sent messages in one set forever. Don't model queues, delivery order, or retransmission unless ordering is what you're verifying.
+- **Abstract time.** Use rounds or epochs as integers. Don't model wall-clock time, timeouts as durations, or real-time constraints.
+- **Fault model is protocol-level — keep it.** Whether nodes can crash or behave Byzantine is a core protocol assumption. Model it explicitly.
+
+If a detail doesn't affect any invariant you care about, it doesn't belong in the spec.
+
+### When to use Choreo
+
+For event driven distributed protocols with N processes, consider the [Choreo framework](guidelines/choreo.md) instead of writing plain Quint.
+
+**Use Choreo when:**
+- Each process reacts to incoming events with distinct handlers per event type
+- You need clean separation between local state manipulation and network effects
+- You want the `listen_X` / `handle_X` / `choreo::cue` pattern for structured, testable specs
+
+**Stick with plain Quint when:**
+- The protocol is simple or has a single actor
+- You are still exploring the design
+- The protocol does not have a clear listen/react structure
 
 ---
 

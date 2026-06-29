@@ -4,13 +4,6 @@ Choreo is a structured framework for writing distributed protocol specs in Quint
 
 **Use Choreo when:** consensus protocols (Raft, Paxos, Tendermint, HotStuff), BFT protocols, multi-phase commit, any message-passing protocol with N processes.
 
-## Contents
-
-- [1. Two-File Split](#1-two-file-split)
-- [2. The `choreo::cue` Pattern](#2-the-choreocue-pattern)
-- [3. Testing with Cues](#3-testing-with-cues)
-- [4. Witness-Based Test Discovery](#4-witness-based-test-discovery)
-
 **Import:**
 ```quint
 import choreo(processes = NODES) as choreo from "./choreo"
@@ -138,7 +131,7 @@ module protocolTest {
   import protocol.* from "./protocol"
 
   // Happy path: inject a proposal, verify stage transition
-  run proposalHandlingTest = {
+  run testProposalHandling = {
     val proposal = { proposal: "v0", round: 0, src: "p1", valid_round: -1 }
     init
       .then("p1".with_cue(listen_proposal_in_propose, proposal).perform(broadcast_prevote_for_proposal))
@@ -147,7 +140,7 @@ module protocolTest {
   }
 
   // Timeout test
-  run timeoutTest = {
+  run testTimeout = {
     init
       .then("p1".step_with(on_propose_timeout))
       .then("p2".step_with(on_propose_timeout))
@@ -155,7 +148,7 @@ module protocolTest {
   }
 
   // Message injection: manually add messages to the buffer
-  run messageInjectionTest = {
+  run testMessageInjection = {
     val msg1 = { src: "p1", round: 2, value: "v0" }
     init
       .then(
@@ -232,8 +225,7 @@ val canBroadcastPrecommit: bool =
 ### Step 3: Find a counterexample
 
 ```bash
-# Here we want the actual PATH, so use the negated-invariant form (not --witnesses):
-# canBroadcastPrecommit is written not(target); a reported violation is a trace reaching it.
+# Witness violated = path to that action found
 quint run spec.qnt --main myProtocol --invariant canBroadcastPrecommit \
   --max-steps 50 --init init_displayer
 ```
