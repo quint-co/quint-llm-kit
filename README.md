@@ -96,13 +96,8 @@ The `quint-llm-kit-plugin/skills/` directory contains standalone agent skills fo
 | Skill | What it does |
 |---|---|
 | [`quint-lang`](quint-llm-kit-plugin/skills/quint-lang/SKILL.md) | Full Quint language reference, CLI toolchain, distributed protocol patterns |
-| [`quint-from-code`](quint-llm-kit-plugin/skills/quint-from-code/SKILL.md) | Generate a Quint spec from source code (Rust, Go, TypeScript, …) or TLA+ |
+| [`quint-modeling`](quint-llm-kit-plugin/skills/quint-modeling/SKILL.md) | Generate a Quint spec from natural-language or functional requirements, source code (Rust, Go, TypeScript, etc.), or an existing TLA+ specification |
 | [`quint-execute-spec`](quint-llm-kit-plugin/skills/quint-execute-spec/SKILL.md) | Implement code grounded by an existing Quint spec |
-| [`quint-from-tlaplus`](quint-llm-kit-plugin/skills/quint-from-tlaplus/SKILL.md) | Translate a TLA+ spec to Quint |
-| [`quint-spec-review`](quint-llm-kit-plugin/skills/quint-spec-review/SKILL.md) | Audit a spec for quality, patterns, and correctness |
-| [`quint-verification-framing`](quint-llm-kit-plugin/skills/quint-verification-framing/SKILL.md) | Frame properties and explain simulation outcomes |
-| [`quint-model-building`](quint-llm-kit-plugin/skills/quint-model-building/SKILL.md) | Derive model structure from plain-English requirements |
-| [`quint-spec-explainer`](quint-llm-kit-plugin/skills/quint-spec-explainer/SKILL.md) | Walk through a spec for engineers unfamiliar with formal methods |
 
 ### Install skills
 
