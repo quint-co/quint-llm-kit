@@ -1,0 +1,14 @@
+{
+  "name": "quint-llm-kit",
+  "displayName": "Quint LLM Kit",
+  "description": "Agent skills for working with Quint — the formal specification language for distributed systems. Covers spec writing, TLA+ translation, code-to-spec generation, spec review, and verification framing.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Informal Systems"
+  },
+  "homepage": "https://github.com/quint-co/quint-llm-kit",
+  "repository": "https://github.com/quint-co/quint-llm-kit",
+  "license": "Apache-2.0",
+  "keywords": ["quint", "formal-verification", "model-checking", "distributed-systems", "tla-plus", "specification"],
+  "skills": "./quint-llm-kit-plugin/skills/"
+}

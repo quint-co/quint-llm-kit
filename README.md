@@ -84,6 +84,54 @@ When in doubt of what to try next, run
 
 which will suggest potential next things you can try. This works from the very start (even if your project doesn't have a Quint spec yet).
 
+## Agent Skills (no Docker required)
+
+> **Two paths, same goal.**
+> The `agentic/` commands (above) are the **Docker-native path**: they run inside the container, use MCP servers for the Quint REPL, and are optimised for Claude Code.
+> The `quint-llm-kit-plugin/skills/` below are the **lightweight path**: plain `quint` CLI, no Docker, any agent.
+> Both cover Quint spec work — pick whichever fits your setup. If you are already in the Docker environment, prefer the slash commands; if you are not, install the skills.
+
+The `quint-llm-kit-plugin/skills/` directory contains standalone agent skills for working with Quint. They work independently of Docker — install them directly into your AI agent of choice.
+
+| Skill | What it does |
+|---|---|
+| [`quint-lang`](quint-llm-kit-plugin/skills/quint-lang/SKILL.md) | Full Quint language reference, CLI toolchain, distributed protocol patterns |
+| [`quint-modeling`](quint-llm-kit-plugin/skills/quint-modeling/SKILL.md) | Generate a Quint spec from natural-language or functional requirements, source code (Rust, Go, TypeScript, etc.), or an existing TLA+ specification |
+| [`quint-execute-spec`](quint-llm-kit-plugin/skills/quint-execute-spec/SKILL.md) | Implement code grounded by an existing Quint spec |
+
+### Install skills
+
+**Claude Code**
+```
+/plugin marketplace add quint-co/quint-llm-kit
+/plugin install quint-llm-kit
+```
+
+**Cursor** — open Settings → Plugins, paste `https://github.com/quint-co/quint-llm-kit`, add. Or clone this repo and open it in Cursor (auto-discovers `.cursor-plugin/plugin.json`).
+
+**VS Code + Copilot** — clone this repo and open it in VS Code (auto-discovers `.copilot-plugin/plugin.json`).
+
+**Codex / Gemini CLI / OpenCode / Cline / and more (macOS / Linux)**
+```bash
+curl -fsSL https://raw.githubusercontent.com/quint-co/quint-llm-kit/main/install.sh | bash
+# or pass the platform to skip the prompt:
+curl -fsSL https://raw.githubusercontent.com/quint-co/quint-llm-kit/main/install.sh | bash -s codex
+```
+
+**Windows (PowerShell)**
+```powershell
+iwr -useb https://raw.githubusercontent.com/quint-co/quint-llm-kit/main/install.ps1 | iex
+```
+
+**npx**
+```bash
+npx skills add quint-co/quint-llm-kit
+```
+
+Supported CLI platforms: `gemini`, `codex`, `opencode`, `pi`, `openclaw`, `antigravity`, `vibe`, `vscode`, `hermes`, `cline`, `kimi`, `trae`
+
+---
+
 ## Security Notes
 
 - The container runs as a non-root user (`dev`) for security
